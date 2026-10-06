@@ -6,7 +6,7 @@
 
 - 餘額只看帳戶總額，由不可覆寫的交易流水計算；不做月結或月餘額重置。
 - 教師可管理學生、入帳、扣款和商品兌換；學生權限為唯讀。
-- 未登入首頁公開顯示啟用公開的班級名稱、學生姓名、座號與目前餘額；不公開交易明細。
+- 未登入首頁公開顯示啟用公開的班級名稱、學生姓名與目前餘額；座號與頭像可由教師在「基本設定」控制，不公開交易明細。
 - 商品兌換建立負數 purchase 交易，交易備註保存兌換物名稱。
 - 交易由資料庫保存操作者及時間；Supabase RLS 在資料庫層限制存取。
 - 餘額數字是正式帳務值，金幣堆疊圖只負責視覺呈現。
@@ -16,7 +16,7 @@
 ### 1. 建立 Supabase 專案
 
 1. 在 Supabase 建立專案。
-2. 於 SQL Editor 依序執行 [`supabase/migrations/202610060001_initial_schema.sql`](supabase/migrations/202610060001_initial_schema.sql) 和 [`supabase/migrations/202610060002_public_balances.sql`](supabase/migrations/202610060002_public_balances.sql)。它們會建立資料表、交易帳本、權限政策、公開餘額 RPC 與私有學生照片 bucket。
+2. 於 SQL Editor 依序執行 [`supabase/migrations/202610060001_initial_schema.sql`](supabase/migrations/202610060001_initial_schema.sql)、[`supabase/migrations/202610060002_public_balances.sql`](supabase/migrations/202610060002_public_balances.sql) 和 [`supabase/migrations/202610060003_classroom_settings_and_public_avatars.sql`](supabase/migrations/202610060003_classroom_settings_and_public_avatars.sql)。它們會建立資料表、權限政策、公開餘額查詢與教師可管理的首頁設定。
 3. 在 Authentication > Users 建立教師電子郵件/密碼帳戶，並停用公開註冊。
 4. 將 [`supabase/initial-setup.sql`](supabase/initial-setup.sql) 裡的教師電子郵件改成你的登入信箱、班級名稱改成實際名稱，再於 SQL Editor 執行一次。此設定會啟用該班級的公開餘額頁。
 5. 若資料庫已有多個班級，公開餘額 migration 不會自動選擇要公開的班級；請在 SQL Editor 只對要公開的班級設定 `public_balances_enabled = true`。
@@ -34,7 +34,7 @@ npm start
 
 開啟 http://localhost:4173。應用程式不需要 npm 套件安裝。
 
-未登入時會進入學生餘額首頁；教師按「教師登入」並登入後，會進入管理首頁。公開頁只讀取資料庫提供的班級名稱、學生姓名、座號與彙總餘額，不讀取交易明細。
+未登入時會進入學生餘額首頁；教師按「教師登入」並登入後，可在「基本設定」控制公開首頁是否顯示座號與學生照片。學生照片預設不公開；開啟後仍使用私有 Storage bucket，只允許取得短效簽名網址，不開放照片資料表或永久公開網址。
 
 ### 3. GitHub Pages 部署
 

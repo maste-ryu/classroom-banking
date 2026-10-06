@@ -1,8 +1,8 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map() };
-const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'] };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), settings: { showStudentAvatars: false, showSeatNumbers: true } };
+const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
 const money = n => `$${fmt(n)}`;
@@ -34,15 +34,23 @@ async function loadPublicBalances() {
       list.innerHTML = '<div class="empty-state panel">目前沒有可顯示的帳戶資料，請洽詢教師。</div>';
       return;
     }
-    const maximumBalance = Math.max(0, ...students.map(student => Number(student.balance || 0)));
+    const studentsWithPhotos = await Promise.all(students.map(async student => {
+      if (!student.student_photo_path) return { ...student, photo_url: null };
+      try {
+        const { data: signedPhoto, error: photoError } = await state.supabase.storage.from('student-photos').createSignedUrl(student.student_photo_path, 300);
+        return { ...student, photo_url: photoError ? null : signedPhoto?.signedUrl || null };
+      } catch { return { ...student, photo_url: null }; }
+    }));
+    const maximumBalance = Math.max(0, ...studentsWithPhotos.map(student => Number(student.balance || 0)));
     $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
     $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
-    list.innerHTML = students.map(student => {
+    list.innerHTML = studentsWithPhotos.map(student => {
       const balance = Number(student.balance || 0);
       const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
       const coinCount = coinCountFor(balance, maximumBalance);
       const stackHeight = coinCount ? 18 + coinCount * 11 : 0;
-      return `<article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article>`;
+      const avatar = student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : '';
+      return `<article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article>`;
     }).join('');
   } catch (error) {
     $('#public-classroom-name').textContent = '學生餘額總覽';
@@ -337,6 +345,31 @@ async function refreshAfterMutation(message) {
   try { await loadState(); toast(message); }
   catch (error) { toast(`資料已送出，但畫面更新失敗：${errorMessage(error)}`); }
 }
+async function submitSettings(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = $('button[type="submit"]', form);
+  const errorNode = $('#settings-error');
+  const statusNode = $('#settings-status');
+  errorNode.textContent = '';
+  statusNode.textContent = '';
+  button.disabled = true;
+  try {
+    const settings = {
+      public_show_student_avatars: $('#setting-show-avatars').checked,
+      public_show_seat_numbers: $('#setting-show-seat-numbers').checked
+    };
+    const { error } = await state.supabase.from('classrooms').update(settings).eq('id', state.classroomId).select('id').single();
+    if (error) throw error;
+    state.settings = { showStudentAvatars: settings.public_show_student_avatars, showSeatNumbers: settings.public_show_seat_numbers };
+    statusNode.textContent = '設定已儲存，重新整理公開首頁後生效。';
+    toast('基本設定已儲存');
+  } catch (error) {
+    showError(errorNode, errorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
+}
 async function enterApp(user) {
   hide('public-screen');
   state.user = user;
@@ -348,7 +381,7 @@ async function enterApp(user) {
     return;
   }
   state.profile = profile;
-  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
+  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,public_show_student_avatars,public_show_seat_numbers)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
   if (error || !memberships?.length) {
     await state.supabase.auth.signOut();
     show('login-screen');
@@ -356,6 +389,14 @@ async function enterApp(user) {
     return;
   }
   state.classroomId = memberships[0].classroom_id;
+  const classroomSettings = memberships[0].classrooms || {};
+  state.settings = { showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false };
+  $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
+  $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
+  $$('.setting-switch').forEach(node => {
+    const input = $('input', node);
+    $('.switch-state', node).textContent = input.checked ? '開啟' : '關閉';
+  });
   $('#teacher-avatar').textContent = avatarText(profile.display_name || user.email);
   const classroom = memberships[0].classrooms?.name;
   if (classroom) $('.welcome-row h2').textContent = `${classroom}，帳務一目了然。`;
@@ -371,6 +412,10 @@ async function initialize() {
   $('#teacher-login-link').addEventListener('click', showTeacherLogin);
   $('#public-home-link').addEventListener('click', showPublicHome);
   $('#public-refresh').addEventListener('click', loadPublicBalances);
+  $('#settings-form').addEventListener('submit', submitSettings);
+  $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
+    $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';
+  }));
   $('#login-form').addEventListener('submit', async event => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);

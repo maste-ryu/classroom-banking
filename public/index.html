@@ -72,6 +72,7 @@
         <button class="nav-item" data-page="transactions"><span class="nav-icon">↕</span>交易流水</button>
         <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
         <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
+        <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>基本設定</button>
       </nav>
       <div class="side-label quick-nav-label">快速操作</div>
       <nav class="quick-nav" aria-label="快速操作">
@@ -120,6 +121,23 @@
       <div id="page-store" class="page">
         <section class="page-intro"><div><h2>班級商店</h2><p>由教師為學生操作兌換，扣款與品項備註會留在帳戶流水。</p></div><button class="button primary" data-open="product-dialog">＋ 新增商品</button></section>
         <div id="products-grid" class="products-grid"></div>
+      </div>
+
+      <div id="page-settings" class="page">
+        <section class="page-intro"><div><h2>公開首頁設定</h2><p>設定未登入訪客可以看到的學生資訊。</p></div></section>
+        <form id="settings-form" class="settings-card panel">
+          <div class="settings-card-heading"><p class="eyebrow">PUBLIC HOMEPAGE</p><h2>學生資訊顯示</h2></div>
+          <label class="setting-row">
+            <span class="setting-copy"><strong>顯示學生頭像</strong><small>開啟後，所有能瀏覽公開首頁的人都可以查看已上傳的學生照片。關閉時會顯示姓名首字。</small></span>
+            <span class="setting-switch"><input id="setting-show-avatars" name="show_student_avatars" type="checkbox"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">關閉</span></span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-copy"><strong>顯示學生座號</strong><small>控制公開首頁學生姓名旁是否顯示座號。</small></span>
+            <span class="setting-switch"><input id="setting-show-seat-numbers" name="show_seat_numbers" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
+          </label>
+          <p id="settings-error" class="form-error" role="alert"></p>
+          <div class="settings-actions"><p id="settings-status" class="form-hint" role="status"></p><button class="button primary" type="submit">儲存設定</button></div>
+        </form>
       </div>
 
       <footer class="app-footer">帳務以資料庫交易為準 <span>•</span> 不提供月結或餘額重置</footer>

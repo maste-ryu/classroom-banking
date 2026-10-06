@@ -14,13 +14,15 @@
 - [x] 指定 GitHub repository：maste-ryu/classroom-banking（遠端目前為空）
 - [x] Supabase 專案 URL 與 publishable key 已提供，本機設定檔已建立且不納入 Git
 - [ ] 將程式推送到 GitHub 並設定 Pages
-- [ ] 將 migration 套用至 Supabase，建立教師及班級
+- [x] 初始資料表與公開餘額 migration 已套用至 Supabase
+- [ ] 套用教師基本設定與公開頭像權限 migration
 - [ ] 設定 GitHub Actions Secrets（SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY）
 
 ## 已建立
 - [x] Supabase 資料模型與 RLS 初始 migration
 - [x] 教師登入與帳戶總覽初版介面
 - [x] 未登入學生餘額首頁與資料庫唯讀公開查詢
+- [x] 教師基本設定頁，可控制公開首頁座號與學生頭像顯示
 - [x] 新增學生、薪資/扣款交易、商品及教師代辦兌換流程
 - [x] GitHub Pages Actions workflow 與本機 Node server
 

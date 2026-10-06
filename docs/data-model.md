@@ -11,7 +11,8 @@
 - **store_products**：班級商店商品類型（實體/體驗）、價格與可選庫存。
 - **transactions**：不可由一般用戶更新/刪除的帳戶流水，記錄金額、類型、備註、操作者與建立時間。
 - **account_balances**：安全檢視表，依完整交易流水計算每位學生餘額；不是可編輯的獨立餘額欄位。
-- **public_classroom_balances()**：公開唯讀 RPC，只回傳唯一啟用公開的班級名稱、學生姓名/座號與餘額，不回傳學生 UUID、照片或交易流水。
+- **classrooms.public_show_student_avatars / public_show_seat_numbers**：教師控制公開首頁是否提供學生照片路徑及座號；照片顯示預設關閉。
+- **public_classroom_balances()**：公開唯讀 RPC，只回傳啟用公開的班級名稱、學生姓名與餘額；座號及照片路徑依教師設定回傳，不回傳學生 UUID 或交易流水。
 
 ## 關係草案
 
@@ -25,6 +26,7 @@
 
 - 所有公開 API 資料表均啟用 RLS；教師只能操作其班級。
 - 公開首頁不開放資料表查詢；匿名用戶只能呼叫 `public_classroom_balances()`，且資料庫最多允許一個班級啟用公開餘額。
+- 學生照片 bucket 維持私有；匿名簽名網址只允許讀取已啟用公開頭像、且路徑仍掛在有效學生資料上的照片，網址 5 分鐘後失效。
 - 學生透過 Auth 身分連結至自己的學生資料後，只讀自己的帳戶/交易和所屬班級商品。
 - 交易由資料庫寫入 `created_by` 與 `created_at`；Authenticated 用戶沒有更新或刪除交易的資料庫權限。
 - 學生照片使用私有 `student-photos` bucket，路徑包含班級與學生 UUID。
