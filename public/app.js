@@ -146,7 +146,7 @@ async function loadState() {
   const [studentsResult, balancesResult, transactionsResult, productsResult] = await Promise.all([
     state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
     state.supabase.from('account_balances').select('student_id,balance').eq('classroom_id', state.classroomId),
-    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by,students(name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
+    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
     state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
   ]);
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
@@ -186,10 +186,23 @@ async function submitStudent(event) {
   const form = event.currentTarget;
   const values = new FormData(form);
   const seat = String(values.get('seat_number') || '').trim();
-  const result = await state.supabase.from('students').insert({ classroom_id: state.classroomId, name: String(values.get('display_name')).trim(), seat_number: seat ? Number(seat) : null }).select('id').single();
-  if (result.error) { showError($('.dialog-error', form), errorMessage(result.error)); return; }
-  form.closest('dialog').close(); form.reset();
-  await refreshAfterMutation('學生帳戶已建立');
+  const error = $('.dialog-error', form);
+  const submitButton = $('button[type="submit"]', form);
+  const originalLabel = submitButton.textContent;
+  error.textContent = '';
+  submitButton.disabled = true;
+  submitButton.textContent = '建立中…';
+  try {
+    const result = await state.supabase.from('students').insert({ classroom_id: state.classroomId, name: String(values.get('display_name')).trim(), seat_number: seat ? Number(seat) : null }).select('id').single();
+    if (result.error) { showError(error, errorMessage(result.error)); return; }
+    form.closest('dialog').close(); form.reset();
+    await refreshAfterMutation('學生帳戶已建立');
+  } catch (requestError) {
+    showError(error, errorMessage(requestError));
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = originalLabel;
+  }
 }
 async function submitProduct(event) {
   event.preventDefault();
