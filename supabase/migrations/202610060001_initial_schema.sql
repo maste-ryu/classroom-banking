@@ -132,7 +132,7 @@ create policy product_teacher_update on public.store_products for update to auth
 create policy transaction_member_read on public.transactions for select to authenticated using
   ((select private.is_teacher_for(classroom_id)) or (select private.can_view_student(student_id)));
 create policy transaction_teacher_insert on public.transactions for insert to authenticated with check
-  ((select private.is_teacher_for(classroom_id)) and created_by=(select auth.uid()));
+  ((select private.is_teacher_for(classroom_id)) and created_by=(select auth.uid()) and transaction_type<>'purchase');
 
 -- The purchase and inventory decrement run atomically; clients cannot write purchase rows directly.
 create function public.redeem_product(p_classroom_id uuid,p_student_id uuid,p_product_id uuid,p_memo text default null)
