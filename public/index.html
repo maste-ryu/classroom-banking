@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261006-settings-fix">
+  <link rel="stylesheet" href="./styles.css?v=20261006-memo-options">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261006-settings-fix" defer></script>
+  <script src="./app.js?v=20261006-memo-options" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -137,6 +137,13 @@
           <p id="settings-error" class="form-error" role="alert"></p>
           <div class="settings-actions"><p id="settings-status" class="form-hint" role="status"></p></div>
         </form>
+        <section class="settings-card panel memo-options-card">
+          <div class="settings-card-heading"><p class="eyebrow">TRANSACTION ITEMS</p><h2>帳務項目選單</h2><p class="form-hint">管理「新增帳務」中的項目與備註選項，新增或移除後會自動儲存。</p></div>
+          <div id="transaction-memo-options" class="memo-option-list" aria-live="polite"></div>
+          <div class="memo-option-add"><label for="new-memo-option">新增項目</label><div><input id="new-memo-option" type="text" maxlength="80" placeholder="例如：完成作業"><button id="add-memo-option" type="button" class="button secondary">新增</button></div></div>
+          <p id="memo-options-error" class="form-error" role="alert"></p>
+          <p id="memo-options-status" class="form-hint" role="status"></p>
+        </section>
       </div>
 
       <footer class="app-footer">帳務以資料庫交易為準 <span>•</span> 不提供月結或餘額重置</footer>
@@ -149,7 +156,7 @@
       <label>學生<select name="student_id" required></select></label>
       <label>交易類型<select name="transaction_type" required><option value="reward">薪資入帳</option><option value="penalty">扣薪</option><option value="adjustment">帳務更正</option></select></label>
       <label>金額<input name="amount" type="number" min="1" step="1" placeholder="輸入薪元金額" required></label>
-      <label>項目與備註<input name="memo" maxlength="240" placeholder="例如：完成作業、協助班級工作" required></label>
+      <label>項目與備註<select name="memo" required></select></label>
       <p class="form-hint">扣薪會自動以負數記錄。送出後將新增一筆交易，無重複入帳阻擋。</p>
       <p class="dialog-error" role="alert"></p>
       <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認入帳</button></div>

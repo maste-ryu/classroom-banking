@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), settings: { showStudentAvatars: false, showSeatNumbers: true } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), settings: { showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -163,7 +163,66 @@ function openDialog(id) {
     return;
   }
   dialog.querySelector('.dialog-error')?.replaceChildren();
+  if (id === 'transaction-dialog') populateTransactionMemoOptions();
   dialog.showModal();
+}
+function populateTransactionMemoOptions() {
+  const select = $('#transaction-form [name="memo"]');
+  const options = state.settings.transactionMemoOptions || [];
+  select.innerHTML = options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('');
+  select.disabled = options.length === 0;
+}
+function renderTransactionMemoOptions() {
+  const list = $('#transaction-memo-options');
+  if (!list) return;
+  list.innerHTML = state.settings.transactionMemoOptions.map((option, index) => `<span class="memo-option-chip">${escapeHtml(option)}<button type="button" data-remove-memo-option="${index}" aria-label="移除 ${escapeHtml(option)}">×</button></span>`).join('');
+  populateTransactionMemoOptions();
+}
+async function saveTransactionMemoOptions(options) {
+  const errorNode = $('#memo-options-error');
+  const statusNode = $('#memo-options-status');
+  const input = $('#new-memo-option');
+  const addButton = $('#add-memo-option');
+  errorNode.textContent = '';
+  statusNode.textContent = '';
+  if (!options.length) { showError(errorNode, '至少保留一個項目。'); return; }
+  if (options.length > 30) { showError(errorNode, '最多可設定 30 個項目。'); return; }
+  if (options.some(option => !option || option.length > 80)) { showError(errorNode, '項目不可空白，且每個項目最多 80 字。'); return; }
+  input.disabled = true;
+  addButton.disabled = true;
+  $$('.memo-option-chip button').forEach(button => { button.disabled = true; });
+  try {
+    const { error } = await state.supabase.from('classrooms').update({ transaction_memo_options: options }).eq('id', state.classroomId).select('id').single();
+    if (error) throw error;
+    state.settings.transactionMemoOptions = options;
+    renderTransactionMemoOptions();
+    statusNode.textContent = '交易項目已儲存。';
+    toast('交易項目已更新');
+  } catch (error) {
+    showError(errorNode, errorMessage(error));
+  } finally {
+    input.disabled = false;
+    addButton.disabled = false;
+    $$('.memo-option-chip button').forEach(button => { button.disabled = false; });
+  }
+}
+function addTransactionMemoOption() {
+  const input = $('#new-memo-option');
+  const option = input.value.trim();
+  const errorNode = $('#memo-options-error');
+  errorNode.textContent = '';
+  if (!option) { showError(errorNode, '請先輸入要新增的項目。'); return; }
+  if (state.settings.transactionMemoOptions.some(item => item.toLocaleLowerCase() === option.toLocaleLowerCase())) {
+    showError(errorNode, '這個項目已經存在。');
+    return;
+  }
+  if (option.length > 80) { showError(errorNode, '每個項目最多 80 字。'); return; }
+  saveTransactionMemoOptions([...state.settings.transactionMemoOptions, option]).then(() => {
+    if (!errorNode.textContent) input.value = '';
+  });
+}
+function removeTransactionMemoOption(index) {
+  saveTransactionMemoOptions(state.settings.transactionMemoOptions.filter((_, optionIndex) => optionIndex !== index));
 }
 function openStudentEditor(studentId) {
   const student = getStudent(studentId);
@@ -247,6 +306,14 @@ function setupDialogs() {
   $('#redemption-form [name="product_id"]').addEventListener('change', updateRedemptionPreview);
   $('#signout-button').addEventListener('click', () => state.supabase.auth.signOut());
   $('#transaction-form').addEventListener('submit', submitTransaction);
+  $('#add-memo-option').addEventListener('click', addTransactionMemoOption);
+  $('#new-memo-option').addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); addTransactionMemoOption(); }
+  });
+  $('#transaction-memo-options').addEventListener('click', event => {
+    const button = event.target.closest('[data-remove-memo-option]');
+    if (button) removeTransactionMemoOption(Number(button.dataset.removeMemoOption));
+  });
   $('#redemption-form').addEventListener('submit', submitRedemption);
   $('#student-form').addEventListener('submit', submitStudent);
   $('#student-edit-form').addEventListener('submit', submitStudentEdit);
@@ -389,7 +456,7 @@ async function enterApp(user) {
     return;
   }
   state.profile = profile;
-  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,public_show_student_avatars,public_show_seat_numbers)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
+  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,public_show_student_avatars,public_show_seat_numbers,transaction_memo_options)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
   if (error || !memberships?.length) {
     await state.supabase.auth.signOut();
     show('login-screen');
@@ -398,13 +465,14 @@ async function enterApp(user) {
   }
   state.classroomId = memberships[0].classroom_id;
   const classroomSettings = memberships[0].classrooms || {};
-  state.settings = { showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false };
+  state.settings = { showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false, transactionMemoOptions: Array.isArray(classroomSettings.transaction_memo_options) && classroomSettings.transaction_memo_options.length ? classroomSettings.transaction_memo_options : ['完成作業', '協助班級工作'] };
   $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
   $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
   $$('.setting-switch').forEach(node => {
     const input = $('input', node);
     $('.switch-state', node).textContent = input.checked ? '開啟' : '關閉';
   });
+  renderTransactionMemoOptions();
   $('#teacher-avatar').textContent = avatarText(profile.display_name || user.email);
   const classroom = memberships[0].classrooms?.name;
   if (classroom) $('.welcome-row h2').textContent = `${classroom}，帳務一目了然。`;

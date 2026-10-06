@@ -12,6 +12,7 @@
 - **transactions**：不可由一般用戶更新/刪除的帳戶流水，記錄金額、類型、備註、操作者與建立時間。
 - **account_balances**：安全檢視表，依完整交易流水計算每位學生餘額；不是可編輯的獨立餘額欄位。
 - **classrooms.public_show_student_avatars / public_show_seat_numbers**：教師控制公開首頁是否提供學生照片路徑及座號；照片顯示預設關閉。
+- **classrooms.transaction_memo_options**：教師維護新增薪資/扣薪帳務時可選的項目與備註；每班一組，預設為「完成作業」與「協助班級工作」。
 - **public_classroom_balances()**：公開唯讀 RPC，只回傳啟用公開的班級名稱、學生姓名與餘額；座號及照片路徑依教師設定回傳，不回傳學生 UUID 或交易流水。
 
 ## 關係草案
