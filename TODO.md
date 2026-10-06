@@ -20,6 +20,7 @@
 ## 已建立
 - [x] Supabase 資料模型與 RLS 初始 migration
 - [x] 教師登入與帳戶總覽初版介面
+- [x] 未登入學生餘額首頁與資料庫唯讀公開查詢
 - [x] 新增學生、薪資/扣款交易、商品及教師代辦兌換流程
 - [x] GitHub Pages Actions workflow 與本機 Node server
 

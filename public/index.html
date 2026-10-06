@@ -16,6 +16,28 @@
   <script src="./app.js" defer></script>
 </head>
 <body>
+  <main id="public-screen" class="public-screen hidden">
+    <header class="public-header">
+      <a class="brand public-brand" href="./" aria-label="班級薪資銀行公開首頁">
+        <span class="brand-mark small">$</span><span><b>班級薪資銀行</b><small>CLASSROOM BANK</small></span>
+      </a>
+      <button id="teacher-login-link" class="button secondary" type="button">教師登入</button>
+    </header>
+    <section class="public-content">
+      <div class="public-heading">
+        <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">班級薪資總覽</h1><p>學生可以隨時查看目前帳戶總餘額。</p></div>
+        <button id="public-refresh" class="button primary" type="button">重新整理</button>
+      </div>
+      <section class="public-total panel" aria-live="polite">
+        <div><p class="eyebrow">CLASS TOTAL</p><h2>全班帳戶總額</h2><small id="public-student-count">載入中…</small></div>
+        <strong id="public-total-balance">—</strong>
+      </section>
+      <div class="public-list-heading"><h2>學生帳戶餘額</h2><span id="public-updated-at"></span></div>
+      <div id="public-students" class="public-student-grid"><div id="public-status" class="empty-state panel">正在載入帳戶資料…</div></div>
+      <p class="public-note">此頁只顯示學生姓名、座號與帳戶總餘額，不顯示交易明細。</p>
+    </section>
+  </main>
+
   <main id="setup-screen" class="setup-screen hidden">
     <section class="setup-card">
       <div class="brand-mark">$</div>
@@ -38,6 +60,7 @@
         <button class="button primary full" type="submit">登入管理帳戶</button>
         <p id="login-error" class="form-error" role="alert"></p>
       </form>
+      <button id="public-home-link" class="text-button login-public-link" type="button">← 返回學生總覽</button>
       <p class="fine-print">帳戶由 Supabase 管理；請由專案管理者建立教師登入帳戶。</p>
     </section>
   </main>

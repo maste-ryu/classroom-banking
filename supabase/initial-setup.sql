@@ -14,7 +14,8 @@ begin
   values (teacher_uuid, '教師', 'teacher')
   on conflict (id) do update set display_name = excluded.display_name, role = 'teacher';
 
-  insert into public.classrooms(name) values ('我的班級') returning id into classroom_uuid;
+  insert into public.classrooms(name, public_balances_enabled)
+  values ('我的班級', true) returning id into classroom_uuid;
   insert into public.classroom_members(classroom_id, user_id, role)
   values (classroom_uuid, teacher_uuid, 'teacher')
   on conflict (classroom_id, user_id) do update set role = 'teacher';

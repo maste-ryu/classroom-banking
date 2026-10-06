@@ -11,6 +11,50 @@ const show = id => { document.getElementById(id).classList.remove('hidden'); };
 const hide = id => { document.getElementById(id).classList.add('hidden'); };
 
 function showError(target, message) { target.textContent = message; }
+function showPublicHome() {
+  hide('setup-screen'); hide('login-screen'); hide('app'); show('public-screen');
+  loadPublicBalances();
+}
+function showTeacherLogin() {
+  hide('public-screen'); hide('setup-screen'); show('login-screen');
+  $('#login-error').textContent = '';
+}
+async function loadPublicBalances() {
+  const list = $('#public-students');
+  if (!list || !state.supabase) return;
+  $('#public-refresh').disabled = true;
+  list.innerHTML = '<div class="empty-state panel">正在載入帳戶資料…</div>';
+  try {
+    const { data, error } = await state.supabase.rpc('public_classroom_balances');
+    if (error) throw error;
+    const students = data || [];
+    if (!students.length) {
+      $('#public-classroom-name').textContent = '班級薪資總覽';
+      $('#public-total-balance').textContent = '—';
+      $('#public-student-count').textContent = '目前沒有可顯示的帳戶';
+      $('#public-updated-at').textContent = '';
+      list.innerHTML = '<div class="empty-state panel">目前沒有可顯示的帳戶資料，請洽詢教師。</div>';
+      return;
+    }
+    const total = students.reduce((sum, student) => sum + Number(student.balance || 0), 0);
+    $('#public-classroom-name').textContent = students[0].classroom_name || '班級薪資總覽';
+    $('#public-total-balance').textContent = money(total);
+    $('#public-student-count').textContent = `共 ${fmt(students.length)} 位學生`;
+    $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+    list.innerHTML = students.map(student => {
+      const balance = Number(student.balance || 0);
+      const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
+      return `<article class="public-student-card"><span class="public-student-avatar">${escapeHtml(avatarText(student.student_name))}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong></article>`;
+    }).join('');
+  } catch (error) {
+    $('#public-classroom-name').textContent = '班級薪資總覽';
+    $('#public-total-balance').textContent = '—';
+    $('#public-student-count').textContent = '暫時無法載入';
+    list.innerHTML = `<div class="empty-state panel">讀取失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
+  } finally {
+    $('#public-refresh').disabled = false;
+  }
+}
 function toast(message) {
   const node = $('#toast');
   node.textContent = message;
@@ -298,6 +342,7 @@ async function refreshAfterMutation(message) {
   catch (error) { toast(`資料已送出，但畫面更新失敗：${errorMessage(error)}`); }
 }
 async function enterApp(user) {
+  hide('public-screen');
   state.user = user;
   const { data: profile, error: profileError } = await state.supabase.from('profiles').select('display_name,role').eq('id', user.id).single();
   if (profileError || !profile || profile.role !== 'teacher') {
@@ -327,6 +372,9 @@ async function initialize() {
   setupDialogs();
   if (!config.supabaseUrl || !config.supabasePublishableKey || !window.supabase?.createClient) { show('setup-screen'); return; }
   state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey);
+  $('#teacher-login-link').addEventListener('click', showTeacherLogin);
+  $('#public-home-link').addEventListener('click', showPublicHome);
+  $('#public-refresh').addEventListener('click', loadPublicBalances);
   $('#login-form').addEventListener('submit', async event => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
@@ -335,9 +383,9 @@ async function initialize() {
     await enterApp(data.user);
   });
   const { data: { session } } = await state.supabase.auth.getSession();
-  if (session?.user) await enterApp(session.user); else show('login-screen');
+  if (session?.user) await enterApp(session.user); else showPublicHome();
   state.supabase.auth.onAuthStateChange((event, sessionState) => {
-    if (event === 'SIGNED_OUT' || !sessionState) { hide('app'); show('login-screen'); state.user = null; state.classroomId = null; }
+    if (event === 'SIGNED_OUT' || !sessionState) { state.user = null; state.classroomId = null; showPublicHome(); }
   });
   setPage(location.hash.slice(1) in pageTitles ? location.hash.slice(1) : 'overview');
 }
