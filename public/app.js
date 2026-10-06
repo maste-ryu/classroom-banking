@@ -40,13 +40,14 @@ function stackCoins(balance) {
   const count = balance <= 0 ? 0 : Math.min(6, Math.max(1, Math.ceil(Math.log10(Number(balance) + 1) * 1.45)));
   return Array.from({ length: 6 }, (_, index) => `<i class="coin ${index >= count ? 'empty' : ''}"></i>`).join('');
 }
-function studentCard(student, editable = false) {
+function studentCard(student, editable = false, portrait = false) {
   const balance = currentBalance(student.id);
   const negative = balance < 0;
   const photoUrl = state.photoUrls.get(student.id);
   const avatar = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(student.name)}照片">` : escapeHtml(avatarText(student.name));
   const editButton = editable ? `<button type="button" class="button secondary student-edit-button" data-edit-student="${escapeHtml(student.id)}">編輯資料</button>` : '';
-  return `<article class="student-card"><div class="student-avatar">${avatar}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div><div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div>${editButton}</article>`;
+  const coinStack = portrait ? `<div class="student-coin-area"><div class="coin-stack student-coin-stack" aria-hidden="true">${stackCoins(balance)}</div><small class="student-coin-caption">金幣堆疊</small></div>` : '';
+  return `<article class="student-card${portrait ? ' student-card-portrait' : ''}"><div class="student-avatar">${avatar}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div>${coinStack}<div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div>${editButton}</article>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -64,11 +65,7 @@ function renderLedger(target, transactions) {
 }
 function render() {
   if (!state.balances.size) state.balances = new Map(state.students.map(student => [student.id, 0]));
-  const total = [...state.balances.values()].reduce((sum, value) => sum + value, 0);
-  $('#class-total').textContent = fmt(total);
-  $('#coin-stack').innerHTML = stackCoins(total);
-  $('#student-count').textContent = `${state.students.length} 位學生`;
-  $('#overview-students').innerHTML = state.students.slice(0, 4).map(studentCard).join('') || '<div class="empty-state panel">新增學生後，帳戶會顯示在這裡。</div>';
+  $('#overview-students').innerHTML = state.students.slice(0, 2).map(student => studentCard(student, false, true)).join('') || '<div class="empty-state panel">新增學生後，帳戶會顯示在這裡。</div>';
   $('#all-students').innerHTML = state.students.map(student => studentCard(student, true)).join('') || '<div class="empty-state panel">尚未建立學生帳戶。</div>';
   renderLedger($('#recent-transactions'), state.transactions.slice(0, 6));
   renderFilteredTransactions();
