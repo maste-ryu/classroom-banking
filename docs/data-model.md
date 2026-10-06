@@ -14,6 +14,7 @@
 - **classrooms.public_show_student_avatars / public_show_seat_numbers**：教師控制公開首頁是否提供學生照片路徑及座號；照片顯示預設關閉。
 - **classrooms.transaction_memo_options**：教師維護新增薪資/扣薪帳務時可選的項目與備註；每班一組，預設為「完成作業」與「協助班級工作」。
 - **public_classroom_balances()**：公開唯讀 RPC，只回傳啟用公開的班級名稱、學生姓名與餘額；座號及照片路徑依教師設定回傳，不回傳學生 UUID 或交易流水。
+- **public_classroom_store()**：公開唯讀 RPC，只回傳啟用公開班級的啟用中商品資訊；商品表本身仍不開放匿名讀取。
 
 ## 關係草案
 

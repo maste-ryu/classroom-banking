@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), settings: { showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), publicStore: [], settings: { showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -13,6 +13,7 @@ const hide = id => { document.getElementById(id).classList.add('hidden'); };
 function showError(target, message) { target.textContent = message; }
 function showPublicHome() {
   hide('setup-screen'); hide('login-screen'); hide('app'); show('public-screen');
+  setPublicView('balances');
   loadPublicBalances();
 }
 function showTeacherLogin() {
@@ -57,6 +58,45 @@ async function loadPublicBalances() {
     list.innerHTML = `<div class="empty-state panel">讀取失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
   } finally {
     $('#public-refresh').disabled = false;
+  }
+}
+function setPublicView(view) {
+  const storeSelected = view === 'store';
+  $('#public-balances-view')?.classList.toggle('hidden', storeSelected);
+  $('#public-store-view')?.classList.toggle('hidden', !storeSelected);
+  $$('.public-view-tab').forEach(button => {
+    const active = button.dataset.publicView === view;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  if (storeSelected) loadPublicStore();
+}
+async function loadPublicStore() {
+  const list = $('#public-store-products');
+  const button = $('#public-store-refresh');
+  if (!list || !state.supabase) return;
+  button.disabled = true;
+  list.innerHTML = '<div class="empty-state panel">正在載入班級商店…</div>';
+  try {
+    const { data, error } = await state.supabase.rpc('public_classroom_store');
+    if (error) throw error;
+    const products = data || [];
+    state.publicStore = products;
+    $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
+    if (!products.length) {
+      list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
+      return;
+    }
+    list.innerHTML = products.map((product, index) => {
+      const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
+      const type = product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
+      return `<article class="public-product-card"><div class="public-product-art" aria-hidden="true">${['✦', '◈', '✿'][index % 3]}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
+    }).join('');
+  } catch (error) {
+    list.innerHTML = `<div class="empty-state panel">讀取班級商店失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
+  } finally {
+    button.disabled = false;
   }
 }
 function toast(message) {
@@ -152,7 +192,7 @@ function renderProducts() {
     target.innerHTML = '<div class="empty-state panel">商店目前沒有商品，教師可以新增第一項獎勵。</div>';
     return;
   }
-  target.innerHTML = state.products.filter(product => product.is_active).map((product, index) => `<article class="product-card"><div class="product-art">${['✦', '◈', '✿'][index % 3]}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><button class="button secondary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></article>`).join('') || '<div class="empty-state panel">目前沒有啟用中的商品。</div>';
+  target.innerHTML = state.products.filter(product => product.is_active).map((product, index) => `<article class="product-card"><div class="product-art">${['✦', '◈', '✿'][index % 3]}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><div class="product-card-actions"><button class="button secondary" data-edit-product="${escapeHtml(product.id)}">編輯商品</button><button class="button primary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div></article>`).join('') || '<div class="empty-state panel">目前沒有啟用中的商品。</div>';
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
@@ -162,9 +202,34 @@ function openDialog(id) {
     else $('#student-dialog').showModal();
     return;
   }
+  if (id === 'product-dialog') {
+    const form = $('#product-form');
+    form.reset();
+    form.elements.product_id.value = '';
+    $('#product-dialog-eyebrow').textContent = 'NEW REWARD';
+    $('#product-dialog-title').textContent = '新增商店商品';
+    $('#product-submit-button').textContent = '新增商品';
+  }
   dialog.querySelector('.dialog-error')?.replaceChildren();
   if (id === 'transaction-dialog') populateTransactionMemoOptions();
   dialog.showModal();
+}
+function openProductEditor(productId) {
+  const product = state.products.find(item => item.id === productId);
+  if (!product) return;
+  const form = $('#product-form');
+  form.reset();
+  form.elements.product_id.value = product.id;
+  form.elements.name.value = product.name;
+  form.elements.product_type.value = product.product_type;
+  form.elements.price.value = product.price;
+  form.elements.description.value = product.description || '';
+  form.elements.stock.value = product.stock_quantity ?? '';
+  $('.dialog-error', form).textContent = '';
+  $('#product-dialog-eyebrow').textContent = 'EDIT REWARD';
+  $('#product-dialog-title').textContent = '編輯商店商品';
+  $('#product-submit-button').textContent = '儲存修改';
+  $('#product-dialog').showModal();
 }
 function populateTransactionMemoOptions() {
   const select = $('#transaction-form [name="memo"]');
@@ -291,6 +356,8 @@ function setupDialogs() {
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   document.addEventListener('click', event => {
+    const editProduct = event.target.closest('[data-edit-product]');
+    if (editProduct) { openProductEditor(editProduct.dataset.editProduct); return; }
     const editStudent = event.target.closest('[data-edit-student]');
     if (editStudent) { openStudentEditor(editStudent.dataset.editStudent); return; }
     const redeem = event.target.closest('[data-redeem]');
@@ -403,10 +470,14 @@ async function submitProduct(event) {
   const form = event.currentTarget;
   const values = new FormData(form);
   const stock = String(values.get('stock') || '').trim();
-  const result = await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, name: String(values.get('name')).trim(), product_type: values.get('product_type'), price: Number(values.get('price')), description: String(values.get('description') || '').trim() || null, stock_quantity: stock ? Number(stock) : null, is_active: true }).select('id').single();
+  const productId = String(values.get('product_id') || '').trim();
+  const changes = { name: String(values.get('name')).trim(), product_type: values.get('product_type'), price: Number(values.get('price')), description: String(values.get('description') || '').trim() || null, stock_quantity: stock ? Number(stock) : null };
+  const result = productId
+    ? await state.supabase.from('store_products').update(changes).eq('id', productId).eq('classroom_id', state.classroomId).select('id').single()
+    : await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, ...changes, is_active: true }).select('id').single();
   if (result.error) { showError($('.dialog-error', form), errorMessage(result.error)); return; }
   form.closest('dialog').close(); form.reset();
-  await refreshAfterMutation('商店商品已新增');
+  await refreshAfterMutation(productId ? '商店商品已更新' : '商店商品已新增');
 }
 async function refreshAfterMutation(message) {
   try { await loadState(); toast(message); }
@@ -488,6 +559,8 @@ async function initialize() {
   $('#teacher-login-link').addEventListener('click', showTeacherLogin);
   $('#public-home-link').addEventListener('click', showPublicHome);
   $('#public-refresh').addEventListener('click', loadPublicBalances);
+  $('#public-store-refresh').addEventListener('click', loadPublicStore);
+  $$('.public-view-tab').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
   $('#settings-form').addEventListener('submit', submitSettings);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
     $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';

@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261006-memo-options">
+  <link rel="stylesheet" href="./styles.css?v=20261006-store-edit-public">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261006-memo-options" defer></script>
+  <script src="./app.js?v=20261006-store-edit-public" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -22,7 +22,11 @@
       </a>
       <button id="teacher-login-link" class="button secondary" type="button">教師登入</button>
     </header>
-    <section class="public-content">
+    <nav class="public-view-tabs" aria-label="公開首頁內容">
+      <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
+      <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
+    </nav>
+    <section id="public-balances-view" class="public-content">
       <div class="public-heading">
         <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">學生餘額總覽</h1><p>查看每位學生目前的帳戶餘額。</p></div>
         <button id="public-refresh" class="button primary" type="button">重新整理</button>
@@ -30,6 +34,11 @@
       <div class="public-list-heading"><h2>學生帳戶餘額</h2><span id="public-updated-at"></span></div>
       <div id="public-students" class="public-student-grid"><div id="public-status" class="empty-state panel">正在載入帳戶資料…</div></div>
       <p class="public-note">金幣堆疊越高，代表帳戶餘額越多；此頁不顯示交易明細。</p>
+    </section>
+    <section id="public-store-view" class="public-content hidden">
+      <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與兌換所需薪元。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
+      <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入班級商店…</div></div>
+      <p class="public-note">公開頁面僅供瀏覽；請洽教師協助兌換。</p>
     </section>
   </main>
 
@@ -201,14 +210,15 @@
 
   <dialog id="product-dialog" class="modal">
     <form id="product-form" class="modal-content">
-      <div class="modal-heading"><div><p class="eyebrow">NEW REWARD</p><h2>新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <div class="modal-heading"><div><p id="product-dialog-eyebrow" class="eyebrow">NEW REWARD</p><h2 id="product-dialog-title">新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <input type="hidden" name="product_id">
       <label>商品名稱<input name="name" maxlength="100" required></label>
       <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option></select></label>
       <label>兌換薪元<input name="price" type="number" min="1" step="1" required></label>
       <label>商品備註<input name="description" maxlength="240" placeholder="選填"></label>
       <label>庫存數量<input name="stock" type="number" min="0" step="1" placeholder="留空代表不限量"></label>
       <p class="dialog-error" role="alert"></p>
-      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">新增商品</button></div>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button id="product-submit-button" class="button primary" type="submit">新增商品</button></div>
     </form>
   </dialog>
 
