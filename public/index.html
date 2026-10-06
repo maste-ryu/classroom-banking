@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>班級薪資銀行</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./ledger-details.css">
+  <link rel="stylesheet" href="./ledger-details.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <main id="setup-screen" class="setup-screen hidden">
+    <section class="setup-card">
+      <div class="brand-mark">$</div>
+      <p class="eyebrow">CLASSROOM FINANCE</p>
+      <h1>班級薪資銀行</h1>
+      <p class="muted">請先完成 Supabase 連線設定，再登入教師帳戶。</p>
+      <div class="setup-note"><strong>設定尚未完成</strong><span>本機執行請設定環境變數；GitHub Pages 請設定 Repository Secrets，詳見 README。</span></div>
+    </section>
+  </main>
+
+  <main id="login-screen" class="login-screen hidden">
+    <section class="login-card">
+      <div class="brand-mark">$</div>
+      <p class="eyebrow">CLASSROOM FINANCE</p>
+      <h1>班級薪資銀行</h1>
+      <p class="muted">教師登入後管理學生帳戶與交易</p>
+      <form id="login-form" class="stack-form">
+        <label>電子郵件<input name="email" type="email" autocomplete="username" required></label>
+        <label>密碼<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="button primary full" type="submit">登入管理帳戶</button>
+        <p id="login-error" class="form-error" role="alert"></p>
+      </form>
+      <p class="fine-print">帳戶由 Supabase 管理；請由專案管理者建立教師登入帳戶。</p>
+    </section>
+  </main>
+
+  <div id="app" class="app-shell hidden">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="班級薪資銀行首頁">
+        <span class="brand-mark small">$</span><span><b>班級薪資銀行</b><small>CLASSROOM BANK</small></span>
+      </a>
+      <div class="side-label">帳戶管理</div>
+      <nav class="main-nav" aria-label="主要導覽">
+        <button class="nav-item active" data-page="overview"><span class="nav-icon">◫</span>帳戶總覽</button>
+        <button class="nav-item" data-page="transactions"><span class="nav-icon">↕</span>交易流水</button>
+        <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
+        <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="secure-badge"><span class="secure-dot"></span><span>資料安全連線<small>SUPABASE CLOUD</small></span></div>
+        <button id="signout-button" class="signout-button">↪ 登出</button>
+      </div>
+    </aside>
+
+    <section class="main-area">
+      <header class="topbar">
+        <div><p class="eyebrow" id="page-eyebrow">ACCOUNT OVERVIEW</p><h1 id="page-title">帳戶總覽</h1></div>
+        <div class="topbar-right"><span id="today-label" class="date-label"></span><span id="teacher-avatar" class="teacher-avatar">師</span></div>
+      </header>
+
+      <div id="page-overview" class="page active-page">
+        <section class="welcome-row">
+          <div><h2>每一筆紀錄，都清楚可查。</h2><p>帳戶餘額由實際交易累計，跨月持續保留。</p></div>
+          <button class="button primary" data-open="transaction-dialog"><span>＋</span> 新增帳務</button>
+        </section>
+        <section class="overview-grid">
+          <article class="balance-panel panel">
+            <div class="panel-heading"><div><p class="eyebrow">CLASS TOTAL BALANCE</p><h3>全班帳戶總餘額</h3></div><span class="live-tag"><i></i> 即時帳務</span></div>
+            <div class="total-balance-row"><div><span class="currency">$</span><span id="class-total" class="total-number">0</span></div><div id="coin-stack" class="coin-stack" aria-hidden="true"></div></div>
+            <div class="balance-foot"><span>依所有學生有效交易累計</span><span id="student-count">0 位學生</span></div>
+          </article>
+          <article class="quick-panel panel">
+            <div class="panel-heading"><div><p class="eyebrow">QUICK ACTION</p><h3>快速操作</h3></div><span class="sparkle">✳</span></div>
+            <button class="quick-action" data-open="transaction-dialog"><span class="action-icon green">↗</span><span><b>薪資入帳</b><small>獎勵、薪資或帳務調整</small></span><span class="arrow">→</span></button>
+            <button class="quick-action" data-open="redemption-dialog"><span class="action-icon amber">↙</span><span><b>商品兌換</b><small>扣款並記錄兌換品項</small></span><span class="arrow">→</span></button>
+          </article>
+        </section>
+
+        <section class="section-block">
+          <div class="section-heading"><div><p class="eyebrow">STUDENT ACCOUNTS</p><h2>學生帳戶</h2></div><button class="text-button" data-page="students">查看全部 <span>→</span></button></div>
+          <div id="overview-students" class="student-grid"></div>
+        </section>
+
+        <section class="section-block ledger-section">
+          <div class="section-heading"><div><p class="eyebrow">LATEST ACTIVITY</p><h2>最近交易</h2></div><button class="text-button" data-page="transactions">完整流水 <span>→</span></button></div>
+          <div id="recent-transactions" class="ledger panel"></div>
+        </section>
+      </div>
+
+      <div id="page-transactions" class="page">
+        <section class="page-intro"><div><h2>每一筆入帳、扣款與兌換都有跡可循。</h2><p>帳戶總餘額由下方交易流水計算，歷史紀錄不因規則變更而改寫。</p></div><button class="button primary" data-open="transaction-dialog">＋ 新增帳務</button></section>
+        <div class="filter-row"><label class="search-box"><span>⌕</span><input id="transaction-search" type="search" placeholder="搜尋學生、項目或備註"></label><select id="type-filter" aria-label="交易類型"><option value="all">所有交易</option><option value="reward">薪資入帳</option><option value="penalty">扣薪</option><option value="purchase">商品兌換</option><option value="adjustment">帳務更正</option></select></div>
+        <div id="all-transactions" class="ledger panel"></div>
+      </div>
+
+      <div id="page-students" class="page">
+        <section class="page-intro"><div><h2>學生個人帳戶</h2><p>管理學生資料、檢視總餘額及帳戶流水。</p></div><button class="button primary" data-open="student-dialog">＋ 新增學生</button></section>
+        <div id="all-students" class="student-grid"></div>
+      </div>
+
+      <div id="page-store" class="page">
+        <section class="page-intro"><div><h2>班級商店</h2><p>由教師為學生操作兌換，扣款與品項備註會留在帳戶流水。</p></div><button class="button primary" data-open="product-dialog">＋ 新增商品</button></section>
+        <div id="products-grid" class="products-grid"></div>
+      </div>
+
+      <footer class="app-footer">帳務以資料庫交易為準 <span>•</span> 不提供月結或餘額重置</footer>
+    </section>
+  </div>
+
+  <dialog id="transaction-dialog" class="modal">
+    <form id="transaction-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">NEW ENTRY</p><h2>新增帳務</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <label>學生<select name="student_id" required></select></label>
+      <label>交易類型<select name="transaction_type" required><option value="reward">薪資入帳</option><option value="penalty">扣薪</option><option value="adjustment">帳務更正</option></select></label>
+      <label>金額<input name="amount" type="number" min="1" step="1" placeholder="輸入薪元金額" required></label>
+      <label>項目與備註<input name="memo" maxlength="240" placeholder="例如：完成作業、協助班級工作" required></label>
+      <p class="form-hint">扣薪會自動以負數記錄。送出後將新增一筆交易，無重複入帳阻擋。</p>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認入帳</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="redemption-dialog" class="modal">
+    <form id="redemption-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">STORE WITHDRAWAL</p><h2>商品兌換</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <label>學生<select name="student_id" required></select></label>
+      <label>兌換商品<select name="product_id" required></select></label>
+      <div id="redemption-preview" class="redemption-preview">選擇學生與商品後顯示扣款預覽</div>
+      <label>交易備註<input name="memo" maxlength="240" placeholder="可補充兌換說明"></label>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認扣款與兌換</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="student-dialog" class="modal">
+    <form id="student-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">NEW STUDENT</p><h2>新增學生帳戶</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <label>姓名<input name="display_name" maxlength="80" required></label>
+      <label>座號<input name="seat_number" type="number" min="1" step="1" placeholder="選填"></label>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">建立帳戶</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="product-dialog" class="modal">
+    <form id="product-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">NEW REWARD</p><h2>新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <label>商品名稱<input name="name" maxlength="100" required></label>
+      <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option></select></label>
+      <label>兌換薪元<input name="price" type="number" min="1" step="1" required></label>
+      <label>商品備註<input name="description" maxlength="240" placeholder="選填"></label>
+      <label>庫存數量<input name="stock" type="number" min="0" step="1" placeholder="留空代表不限量"></label>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">新增商品</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
