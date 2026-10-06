@@ -150,6 +150,20 @@
     </form>
   </dialog>
 
+  <dialog id="student-edit-dialog" class="modal">
+    <form id="student-edit-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">STUDENT PROFILE</p><h2>管理學生資料</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <input type="hidden" name="student_id">
+      <img id="student-photo-preview" class="student-photo-preview hidden" alt="學生照片預覽">
+      <label>姓名<input name="display_name" maxlength="80" required></label>
+      <label>座號<input name="seat_number" type="number" min="1" step="1" placeholder="選填"></label>
+      <label>學生照片<input name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <p class="form-hint">支援 JPG、PNG、WebP，檔案上限 5 MB。上傳後只有班級教師與該學生可檢視。</p>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">儲存資料</button></div>
+    </form>
+  </dialog>
+
   <dialog id="product-dialog" class="modal">
     <form id="product-form" class="modal-content">
       <div class="modal-heading"><div><p class="eyebrow">NEW REWARD</p><h2>新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>

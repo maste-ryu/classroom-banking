@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map() };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map() };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -40,10 +40,13 @@ function stackCoins(balance) {
   const count = balance <= 0 ? 0 : Math.min(6, Math.max(1, Math.ceil(Math.log10(Number(balance) + 1) * 1.45)));
   return Array.from({ length: 6 }, (_, index) => `<i class="coin ${index >= count ? 'empty' : ''}"></i>`).join('');
 }
-function studentCard(student) {
+function studentCard(student, editable = false) {
   const balance = currentBalance(student.id);
   const negative = balance < 0;
-  return `<article class="student-card"><div class="student-avatar">${escapeHtml(avatarText(student.name))}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div><div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div></article>`;
+  const photoUrl = state.photoUrls.get(student.id);
+  const avatar = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(student.name)}照片">` : escapeHtml(avatarText(student.name));
+  const editButton = editable ? `<button type="button" class="button secondary student-edit-button" data-edit-student="${escapeHtml(student.id)}">編輯資料</button>` : '';
+  return `<article class="student-card"><div class="student-avatar">${avatar}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div><div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div>${editButton}</article>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -66,7 +69,7 @@ function render() {
   $('#coin-stack').innerHTML = stackCoins(total);
   $('#student-count').textContent = `${state.students.length} 位學生`;
   $('#overview-students').innerHTML = state.students.slice(0, 4).map(studentCard).join('') || '<div class="empty-state panel">新增學生後，帳戶會顯示在這裡。</div>';
-  $('#all-students').innerHTML = state.students.map(studentCard).join('') || '<div class="empty-state panel">尚未建立學生帳戶。</div>';
+  $('#all-students').innerHTML = state.students.map(student => studentCard(student, true)).join('') || '<div class="empty-state panel">尚未建立學生帳戶。</div>';
   renderLedger($('#recent-transactions'), state.transactions.slice(0, 6));
   renderFilteredTransactions();
   renderProducts();
@@ -109,12 +112,75 @@ function openDialog(id) {
   dialog.querySelector('.dialog-error')?.replaceChildren();
   dialog.showModal();
 }
+function openStudentEditor(studentId) {
+  const student = getStudent(studentId);
+  if (!student) return;
+  const form = $('#student-edit-form');
+  form.elements.student_id.value = student.id;
+  form.elements.display_name.value = student.name;
+  form.elements.seat_number.value = student.seat_number ?? '';
+  form.elements.photo.value = '';
+  $('.dialog-error', form).textContent = '';
+  const preview = $('#student-photo-preview');
+  const photoUrl = state.photoUrls.get(student.id);
+  if (photoUrl) { preview.src = photoUrl; preview.classList.remove('hidden'); }
+  else { preview.removeAttribute('src'); preview.classList.add('hidden'); }
+  $('#student-dialog').close();
+  $('#student-edit-dialog').showModal();
+}
+async function submitStudentEdit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const student = getStudent(String(values.get('student_id')));
+  const file = values.get('photo');
+  const error = $('.dialog-error', form);
+  const submitButton = $('button[type="submit"]', form);
+  const originalLabel = submitButton.textContent;
+  if (!student) { showError(error, '找不到這位學生，請重新整理後再試。'); return; }
+  if (file?.size && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError(error, '照片請使用 JPG、PNG 或 WebP 格式。'); return; }
+  if (file?.size > 5 * 1024 * 1024) { showError(error, '照片大小不可超過 5 MB。'); return; }
+  const seat = String(values.get('seat_number') || '').trim();
+  let uploadedPath = null;
+  error.textContent = '';
+  submitButton.disabled = true;
+  submitButton.textContent = '儲存中…';
+  try {
+    const changes = { name: String(values.get('display_name')).trim(), seat_number: seat ? Number(seat) : null };
+    if (file?.size) {
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      uploadedPath = `${state.classroomId}/${student.id}/${uniqueName}.${extension}`;
+      const upload = await state.supabase.storage.from('student-photos').upload(uploadedPath, file, { contentType: file.type, upsert: false });
+      if (upload.error) { showError(error, errorMessage(upload.error)); return; }
+      changes.photo_path = uploadedPath;
+    }
+    const result = await state.supabase.from('students').update(changes).eq('id', student.id).eq('classroom_id', state.classroomId).select('id').single();
+    if (result.error) {
+      if (uploadedPath) await state.supabase.storage.from('student-photos').remove([uploadedPath]);
+      showError(error, errorMessage(result.error));
+      return;
+    }
+    form.closest('dialog').close();
+    form.reset();
+    if (uploadedPath && student.photo_path) await state.supabase.storage.from('student-photos').remove([student.photo_path]);
+    await refreshAfterMutation('學生資料已更新');
+  } catch (requestError) {
+    if (uploadedPath) await state.supabase.storage.from('student-photos').remove([uploadedPath]);
+    showError(error, errorMessage(requestError));
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = originalLabel;
+  }
+}
 function setupDialogs() {
   $$('[data-open]').forEach(button => button.addEventListener('click', () => openDialog(button.dataset.open)));
   $$('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   document.addEventListener('click', event => {
+    const editStudent = event.target.closest('[data-edit-student]');
+    if (editStudent) { openStudentEditor(editStudent.dataset.editStudent); return; }
     const redeem = event.target.closest('[data-redeem]');
     if (redeem) {
       openDialog('redemption-dialog');
@@ -130,6 +196,7 @@ function setupDialogs() {
   $('#transaction-form').addEventListener('submit', submitTransaction);
   $('#redemption-form').addEventListener('submit', submitRedemption);
   $('#student-form').addEventListener('submit', submitStudent);
+  $('#student-edit-form').addEventListener('submit', submitStudentEdit);
   $('#product-form').addEventListener('submit', submitProduct);
   document.addEventListener('keydown', event => { if (event.key === 'Escape') $$('dialog[open]').forEach(dialog => dialog.close()); });
 }
@@ -151,6 +218,13 @@ async function loadState() {
   ]);
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
   state.students = studentsResult.data || [];
+  state.photoUrls.clear();
+  await Promise.all(state.students.filter(student => student.photo_path).map(async student => {
+    try {
+      const { data, error } = await state.supabase.storage.from('student-photos').createSignedUrl(student.photo_path, 3600);
+      if (!error && data?.signedUrl) state.photoUrls.set(student.id, data.signedUrl);
+    } catch { /* Keep the initials avatar if a stored photo cannot be signed. */ }
+  }));
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.products = productsResult.data || [];
