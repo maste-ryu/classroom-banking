@@ -29,27 +29,23 @@ async function loadPublicBalances() {
     if (error) throw error;
     const students = data || [];
     if (!students.length) {
-      $('#public-classroom-name').textContent = '班級薪資總覽';
-      $('#public-total-balance').textContent = '—';
-      $('#public-student-count').textContent = '目前沒有可顯示的帳戶';
+      $('#public-classroom-name').textContent = '學生餘額總覽';
       $('#public-updated-at').textContent = '';
       list.innerHTML = '<div class="empty-state panel">目前沒有可顯示的帳戶資料，請洽詢教師。</div>';
       return;
     }
-    const total = students.reduce((sum, student) => sum + Number(student.balance || 0), 0);
-    $('#public-classroom-name').textContent = students[0].classroom_name || '班級薪資總覽';
-    $('#public-total-balance').textContent = money(total);
-    $('#public-student-count').textContent = `共 ${fmt(students.length)} 位學生`;
+    const maximumBalance = Math.max(0, ...students.map(student => Number(student.balance || 0)));
+    $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
     $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
     list.innerHTML = students.map(student => {
       const balance = Number(student.balance || 0);
       const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
-      return `<article class="public-student-card"><span class="public-student-avatar">${escapeHtml(avatarText(student.student_name))}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong></article>`;
+      const coinCount = coinCountFor(balance, maximumBalance);
+      const stackHeight = coinCount ? 18 + coinCount * 11 : 0;
+      return `<article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article>`;
     }).join('');
   } catch (error) {
-    $('#public-classroom-name').textContent = '班級薪資總覽';
-    $('#public-total-balance').textContent = '—';
-    $('#public-student-count').textContent = '暫時無法載入';
+    $('#public-classroom-name').textContent = '學生餘額總覽';
     list.innerHTML = `<div class="empty-state panel">讀取失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
   } finally {
     $('#public-refresh').disabled = false;
