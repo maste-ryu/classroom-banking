@@ -54,6 +54,11 @@
         <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
         <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
       </nav>
+      <div class="side-label quick-nav-label">快速操作</div>
+      <nav class="quick-nav" aria-label="快速操作">
+        <button class="quick-nav-item" data-open="transaction-dialog"><span class="nav-icon">↗</span>薪資入帳</button>
+        <button class="quick-nav-item" data-open="redemption-dialog"><span class="nav-icon">↙</span>商品兌換</button>
+      </nav>
       <div class="sidebar-bottom">
         <div class="secure-badge"><span class="secure-dot"></span><span>資料安全連線<small>SUPABASE CLOUD</small></span></div>
         <button id="signout-button" class="signout-button">↪ 登出</button>
@@ -71,14 +76,6 @@
           <div><h2>每一筆紀錄，都清楚可查。</h2><p>帳戶餘額由實際交易累計，跨月持續保留。</p></div>
           <button class="button primary" data-open="transaction-dialog"><span>＋</span> 新增帳務</button>
         </section>
-        <section class="overview-grid">
-          <article class="quick-panel panel">
-            <div class="panel-heading"><div><p class="eyebrow">QUICK ACTION</p><h3>快速操作</h3></div><span class="sparkle">✳</span></div>
-            <button class="quick-action" data-open="transaction-dialog"><span class="action-icon green">↗</span><span><b>薪資入帳</b><small>獎勵、薪資或帳務調整</small></span><span class="arrow">→</span></button>
-            <button class="quick-action" data-open="redemption-dialog"><span class="action-icon amber">↙</span><span><b>商品兌換</b><small>扣款並記錄兌換品項</small></span><span class="arrow">→</span></button>
-          </article>
-        </section>
-
         <section class="section-block">
           <div class="section-heading"><div><p class="eyebrow">STUDENT ACCOUNTS</p><h2>學生帳戶</h2></div><button class="text-button" data-page="students">查看全部 <span>→</span></button></div>
           <div id="overview-students" class="student-grid"></div>
