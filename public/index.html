@@ -8,12 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./ledger-details.css">
+  <link rel="stylesheet" href="./styles.css?v=20261006-settings-fix">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=20261006-settings-fix" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -126,7 +125,7 @@
       <div id="page-settings" class="page">
         <section class="page-intro"><div><h2>公開首頁設定</h2><p>設定未登入訪客可以看到的學生資訊。</p></div></section>
         <form id="settings-form" class="settings-card panel">
-          <div class="settings-card-heading"><p class="eyebrow">PUBLIC HOMEPAGE</p><h2>學生資訊顯示</h2></div>
+          <div class="settings-card-heading"><p class="eyebrow">PUBLIC HOMEPAGE</p><h2>學生資訊顯示</h2><p class="form-hint">切換後會自動儲存。</p></div>
           <label class="setting-row">
             <span class="setting-copy"><strong>顯示學生頭像</strong><small>開啟後，所有能瀏覽公開首頁的人都可以查看已上傳的學生照片。關閉時會顯示姓名首字。</small></span>
             <span class="setting-switch"><input id="setting-show-avatars" name="show_student_avatars" type="checkbox"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">關閉</span></span>
@@ -136,7 +135,7 @@
             <span class="setting-switch"><input id="setting-show-seat-numbers" name="show_seat_numbers" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
           </label>
           <p id="settings-error" class="form-error" role="alert"></p>
-          <div class="settings-actions"><p id="settings-status" class="form-hint" role="status"></p><button class="button primary" type="submit">儲存設定</button></div>
+          <div class="settings-actions"><p id="settings-status" class="form-hint" role="status"></p></div>
         </form>
       </div>
 

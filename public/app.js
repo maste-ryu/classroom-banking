@@ -349,11 +349,13 @@ async function submitSettings(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const button = $('button[type="submit"]', form);
+  const inputs = $$('.setting-switch input', form);
   const errorNode = $('#settings-error');
   const statusNode = $('#settings-status');
   errorNode.textContent = '';
   statusNode.textContent = '';
-  button.disabled = true;
+  if (button) button.disabled = true;
+  inputs.forEach(input => { input.disabled = true; });
   try {
     const settings = {
       public_show_student_avatars: $('#setting-show-avatars').checked,
@@ -362,12 +364,18 @@ async function submitSettings(event) {
     const { error } = await state.supabase.from('classrooms').update(settings).eq('id', state.classroomId).select('id').single();
     if (error) throw error;
     state.settings = { showStudentAvatars: settings.public_show_student_avatars, showSeatNumbers: settings.public_show_seat_numbers };
-    statusNode.textContent = '設定已儲存，重新整理公開首頁後生效。';
+    statusNode.textContent = '設定已自動儲存；公開首頁重新整理後會套用。';
     toast('基本設定已儲存');
   } catch (error) {
+    $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
+    $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
+    inputs.forEach(input => {
+      $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';
+    });
     showError(errorNode, errorMessage(error));
   } finally {
-    button.disabled = false;
+    if (button) button.disabled = false;
+    inputs.forEach(input => { input.disabled = false; });
   }
 }
 async function enterApp(user) {
@@ -415,6 +423,7 @@ async function initialize() {
   $('#settings-form').addEventListener('submit', submitSettings);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
     $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';
+    $('#settings-form').requestSubmit();
   }));
   $('#login-form').addEventListener('submit', async event => {
     event.preventDefault();
