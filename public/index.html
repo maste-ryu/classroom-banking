@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261007-wide-transaction-dialog">
+  <link rel="stylesheet" href="./styles.css?v=20261007-home-layout">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
@@ -26,9 +26,9 @@
       <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
       <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
     </nav>
-    <section id="public-balances-view" class="public-content">
+    <section id="public-balances-view" class="public-content public-balances-view">
       <div class="public-heading">
-        <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">學生餘額總覽</h1><p>查看每位學生目前的帳戶餘額。</p></div>
+        <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">學生餘額總覽</h1></div>
         <button id="public-refresh" class="button primary" type="button">重新整理</button>
       </div>
       <div class="public-list-heading"><h2>學生帳戶餘額</h2><span id="public-updated-at"></span></div>
