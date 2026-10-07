@@ -251,10 +251,12 @@ function openProductEditor(productId) {
   $('#product-dialog').showModal();
 }
 function populateTransactionMemoOptions() {
-  const select = $('#transaction-form [name="memo"]');
+  const picker = $('#transaction-memo-picker');
+  if (!picker) return;
   const options = state.settings.transactionMemoOptions || [];
-  select.innerHTML = options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('');
-  select.disabled = options.length === 0;
+  const currentSelection = $('#transaction-form [name="memo"]:checked')?.value;
+  picker.innerHTML = options.map((option, index) => `<label class="transaction-memo-choice"><input type="radio" name="memo" value="${escapeHtml(option)}" required${option === currentSelection || (!currentSelection && index === 0) ? ' checked' : ''}><span>${escapeHtml(option)}</span></label>`).join('');
+  picker.closest('.transaction-memo-fieldset').hidden = options.length === 0;
 }
 function renderTransactionMemoOptions() {
   const list = $('#transaction-memo-options');
