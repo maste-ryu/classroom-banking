@@ -132,7 +132,14 @@
       </div>
 
       <div id="page-settings" class="page">
-        <section class="page-intro"><div><h2>公開首頁設定</h2><p>設定未登入訪客可以看到的學生資訊。</p></div></section>
+        <section class="page-intro"><div><h2>系統設定</h2><p>管理系統基本資訊與未登入訪客可看到的學生資訊。</p></div></section>
+        <form id="basic-info-form" class="settings-card panel">
+          <div class="settings-card-heading"><p class="eyebrow">SYSTEM INFORMATION</p><h2>系統基本資訊</h2><p class="form-hint">自訂管理介面與公開首頁顯示的系統名稱及班級名稱。</p></div>
+          <label>系統名稱<input id="setting-system-name" name="system_name" maxlength="100" required></label>
+          <label>班級名稱<input id="setting-classroom-name" name="classroom_name" maxlength="100" required></label>
+          <p id="basic-info-error" class="form-error" role="alert"></p>
+          <div class="settings-actions"><p id="basic-info-status" class="form-hint" role="status"></p><button class="button primary" type="submit">儲存基本資訊</button></div>
+        </form>
         <form id="settings-form" class="settings-card panel">
           <div class="settings-card-heading"><p class="eyebrow">PUBLIC HOMEPAGE</p><h2>學生資訊顯示</h2><p class="form-hint">切換後會自動儲存。</p></div>
           <label class="setting-row">

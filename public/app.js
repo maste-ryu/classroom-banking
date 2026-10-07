@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), publicStore: [], settings: { showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -9,6 +9,14 @@ const money = n => `$${fmt(n)}`;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const show = id => { document.getElementById(id).classList.remove('hidden'); };
 const hide = id => { document.getElementById(id).classList.add('hidden'); };
+function applyBranding(systemName, classroomName = '') {
+  const name = systemName || '班級薪資銀行';
+  document.title = name;
+  $$('.brand b').forEach(node => { node.textContent = name; });
+  $$('.brand').forEach(node => { node.setAttribute('aria-label', `${name}首頁`); });
+  const appClassroom = $('.welcome-row h2');
+  if (appClassroom && classroomName) appClassroom.textContent = `${classroomName}，帳務一目了然。`;
+}
 
 function showError(target, message) { target.textContent = message; }
 function showPublicHome() {
@@ -29,6 +37,7 @@ async function loadPublicBalances() {
     const { data, error } = await state.supabase.rpc('public_classroom_balances');
     if (error) throw error;
     const students = data || [];
+    if (students[0]?.system_name) applyBranding(students[0].system_name, students[0].classroom_name);
     if (!students.length) {
       $('#public-classroom-name').textContent = '學生餘額總覽';
       $('#public-updated-at').textContent = '';
@@ -83,6 +92,7 @@ async function loadPublicStore() {
     if (error) throw error;
     const products = data || [];
     state.publicStore = products;
+    if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
     $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
     if (!products.length) {
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
@@ -516,6 +526,35 @@ async function submitSettings(event) {
     inputs.forEach(input => { input.disabled = false; });
   }
 }
+async function submitBasicInfo(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = $('button[type="submit"]', form);
+  const errorNode = $('#basic-info-error');
+  const statusNode = $('#basic-info-status');
+  errorNode.textContent = '';
+  statusNode.textContent = '';
+  const systemName = $('#setting-system-name').value.trim();
+  const classroomName = $('#setting-classroom-name').value.trim();
+  if (!systemName || !classroomName) {
+    showError(errorNode, '系統名稱和班級名稱都不能空白。');
+    return;
+  }
+  button.disabled = true;
+  try {
+    const { error } = await state.supabase.from('classrooms').update({ system_name: systemName, name: classroomName }).eq('id', state.classroomId).select('id').single();
+    if (error) throw error;
+    state.settings.systemName = systemName;
+    state.settings.classroomName = classroomName;
+    applyBranding(systemName, classroomName);
+    statusNode.textContent = '基本資訊已儲存。';
+    toast('系統基本資訊已儲存');
+  } catch (error) {
+    showError(errorNode, errorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
+}
 async function enterApp(user) {
   hide('public-screen');
   state.user = user;
@@ -527,7 +566,7 @@ async function enterApp(user) {
     return;
   }
   state.profile = profile;
-  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,public_show_student_avatars,public_show_seat_numbers,transaction_memo_options)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
+  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,system_name,public_show_student_avatars,public_show_seat_numbers,transaction_memo_options)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
   if (error || !memberships?.length) {
     await state.supabase.auth.signOut();
     show('login-screen');
@@ -536,7 +575,10 @@ async function enterApp(user) {
   }
   state.classroomId = memberships[0].classroom_id;
   const classroomSettings = memberships[0].classrooms || {};
-  state.settings = { showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false, transactionMemoOptions: Array.isArray(classroomSettings.transaction_memo_options) && classroomSettings.transaction_memo_options.length ? classroomSettings.transaction_memo_options : ['完成作業', '協助班級工作'] };
+  state.settings = { systemName: classroomSettings.system_name || '班級薪資銀行', classroomName: classroomSettings.name || '', showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false, transactionMemoOptions: Array.isArray(classroomSettings.transaction_memo_options) && classroomSettings.transaction_memo_options.length ? classroomSettings.transaction_memo_options : ['完成作業', '協助班級工作'] };
+  $('#setting-system-name').value = state.settings.systemName;
+  $('#setting-classroom-name').value = state.settings.classroomName;
+  applyBranding(state.settings.systemName, state.settings.classroomName);
   $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
   $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
   $$('.setting-switch').forEach(node => {
@@ -545,8 +587,6 @@ async function enterApp(user) {
   });
   renderTransactionMemoOptions();
   $('#teacher-avatar').textContent = avatarText(profile.display_name || user.email);
-  const classroom = memberships[0].classrooms?.name;
-  if (classroom) $('.welcome-row h2').textContent = `${classroom}，帳務一目了然。`;
   hide('login-screen'); hide('setup-screen'); show('app');
   try { await loadState(); }
   catch (loadError) { toast(`讀取帳戶資料失敗：${errorMessage(loadError)}`); }
@@ -562,6 +602,7 @@ async function initialize() {
   $('#public-store-refresh').addEventListener('click', loadPublicStore);
   $$('.public-view-tab').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
   $('#settings-form').addEventListener('submit', submitSettings);
+  $('#basic-info-form').addEventListener('submit', submitBasicInfo);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
     $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';
     $('#settings-form').requestSubmit();
