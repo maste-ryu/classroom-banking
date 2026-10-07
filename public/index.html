@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261007-readable-type">
+  <link rel="stylesheet" href="./styles.css?v=20261007-public-ledger">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261006-store-edit-public" defer></script>
+  <script src="./app.js?v=20261007-public-ledger" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -33,7 +33,7 @@
       </div>
       <div class="public-list-heading"><h2>學生帳戶餘額</h2><span id="public-updated-at"></span></div>
       <div id="public-students" class="public-student-grid"><div id="public-status" class="empty-state panel">正在載入帳戶資料…</div></div>
-      <p class="public-note">金幣堆疊越高，代表帳戶餘額越多；此頁不顯示交易明細。</p>
+      <p class="public-note">此公開頁面會顯示各學生的交易日期、類型、備註與金額；長清單可在明細窗格內捲動。</p>
     </section>
     <section id="public-store-view" class="public-content hidden">
       <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與兌換所需薪元。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
