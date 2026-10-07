@@ -116,3 +116,30 @@ small{font-size:1em}
   .public-total>strong{font-size:27px}
   .student-card-portrait{min-height:220px;padding:15px 12px}
 }
+
+/* Use one consistent portrait size across student cards and photo previews. */
+.student-card-portrait .student-avatar,.student-card:not(.student-card-portrait) .student-avatar,.public-student-avatar,.student-photo-preview{width:120px;height:120px;flex:0 0 120px;border-radius:28px;font-size:36px}
+.student-photo-preview{display:block;object-fit:cover;border:1px solid #e7e5de}
+.student-card:not(.student-card-portrait){display:grid;grid-template-columns:120px minmax(0,1fr) auto;grid-template-areas:"avatar info money" ". edit edit";gap:12px 14px;align-items:center}
+.student-card:not(.student-card-portrait)>.student-avatar{grid-area:avatar}
+.student-card:not(.student-card-portrait)>.student-info{grid-area:info}
+.student-card:not(.student-card-portrait)>.student-money{grid-area:money;min-width:58px}
+.student-card:not(.student-card-portrait)>.student-edit-button{grid-area:edit;justify-self:end}
+@media(max-width:900px){#overview-students.student-grid,#all-students.student-grid,.public-student-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){
+  .student-card-portrait{flex-direction:column;align-items:stretch;min-height:0;text-align:left}
+  .student-card-profile{width:100%;flex:0 0 auto;align-items:center}
+  .student-card-portrait .student-info{flex:1}
+  .student-card-balance-panel{width:100%;min-width:0;display:grid;grid-template-columns:100px minmax(0,1fr);justify-items:center;gap:8px}
+  .student-card-portrait .student-coin-area{grid-row:1 / span 2}
+  .student-card-portrait .student-coin-stack{width:100px}
+  .student-card-portrait .student-money{justify-self:start;text-align:left}
+  .student-card:not(.student-card-portrait){grid-template-columns:120px minmax(0,1fr);grid-template-areas:"avatar info" "money edit";gap:12px}
+  .student-card:not(.student-card-portrait)>.student-money{justify-self:start;text-align:left}
+  .student-card:not(.student-card-portrait)>.student-edit-button{width:100%;padding-inline:8px}
+  .public-student-card{display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;gap:12px}
+  .public-student-profile{width:100%;flex:0 0 auto}
+  .public-balance-panel{width:100%;min-width:0;display:grid;grid-template-columns:100px auto;justify-content:center;gap:4px 14px}
+  .public-coin-stack{grid-row:1 / span 2;width:100px}
+  .public-student-balance,.public-balance-panel>small{justify-self:start}
+}

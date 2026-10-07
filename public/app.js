@@ -231,7 +231,7 @@ function transactionRow(transaction) {
   const timestamp = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const actorName = transaction.actor?.display_name?.trim();
   const actor = actorName ? `操作人 ${escapeHtml(actorName)}` : '操作人';
-  return `<div class="ledger-row"><div class="ledger-name"><span class="mini-avatar">${escapeHtml(avatarText(student.name))}</span><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
+  return `<div class="ledger-row"><div class="ledger-name"><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
 }
 function renderLedger(target, transactions) {
   if (!transactions.length) {
