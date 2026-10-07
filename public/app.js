@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicProductPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -19,6 +19,63 @@ function applyBranding(systemName, classroomName = '') {
 }
 
 function showError(target, message) { target.textContent = message; }
+function clearObjectUrls(map) {
+  map.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); });
+  map.clear();
+}
+async function trimProductPhoto(source) {
+  const bitmap = await createImageBitmap(source);
+  try {
+    const scale = Math.min(1, 400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const corners = [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]];
+    const whiteBackground = corners.every(([x, y]) => {
+      const i = (y * width + x) * 4;
+      return data[i] > 225 && data[i + 1] > 225 && data[i + 2] > 225 && data[i + 3] > 200;
+    });
+    let left = 0, top = 0, right = width - 1, bottom = height - 1;
+    if (whiteBackground) {
+      left = width; top = height; right = -1; bottom = -1;
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (data[i + 3] < 32 || Math.min(data[i], data[i + 1], data[i + 2]) > 238) continue;
+        left = Math.min(left, x); top = Math.min(top, y);
+        right = Math.max(right, x); bottom = Math.max(bottom, y);
+      }
+      if (right < left || bottom < top) { left = 0; top = 0; right = width - 1; bottom = height - 1; }
+      const cropWidth = right - left + 1, cropHeight = bottom - top + 1;
+      if (cropWidth < width * 0.94 || cropHeight < height * 0.94) {
+        const padX = Math.round(cropWidth * 0.08), padY = Math.round(cropHeight * 0.08);
+        left = Math.max(0, left - padX); top = Math.max(0, top - padY);
+        right = Math.min(width - 1, right + padX); bottom = Math.min(height - 1, bottom + padY);
+      } else { left = 0; top = 0; right = width - 1; bottom = height - 1; }
+    }
+    const x = Math.floor(left / scale), y = Math.floor(top / scale);
+    const cropWidth = Math.min(bitmap.width - x, Math.ceil((right - left + 1) / scale));
+    const cropHeight = Math.min(bitmap.height - y, Math.ceil((bottom - top + 1) / scale));
+    const outputScale = Math.min(1, 1000 / Math.max(cropWidth, cropHeight));
+    const output = document.createElement('canvas');
+    output.width = Math.max(1, Math.round(cropWidth * outputScale));
+    output.height = Math.max(1, Math.round(cropHeight * outputScale));
+    const outputContext = output.getContext('2d');
+    outputContext.fillStyle = '#fff';
+    outputContext.fillRect(0, 0, output.width, output.height);
+    outputContext.drawImage(bitmap, x, y, cropWidth, cropHeight, 0, 0, output.width, output.height);
+    return await new Promise((resolve, reject) => output.toBlob(blob => blob ? resolve(blob) : reject(new Error('thumbnail failed')), 'image/jpeg', 0.88));
+  } finally { bitmap.close?.(); }
+}
+async function productThumbnailUrl(imageUrl) {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return imageUrl;
+    return URL.createObjectURL(await trimProductPhoto(await response.blob()));
+  } catch { return imageUrl; }
+}
 function showPublicHome() {
   hide('setup-screen'); hide('login-screen'); hide('app'); show('public-screen');
   setPublicView('balances');
@@ -103,15 +160,19 @@ async function loadPublicStore() {
     if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
     $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
     if (!products.length) {
+      clearObjectUrls(state.publicProductPhotoUrls);
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
       return;
     }
+    clearObjectUrls(state.publicProductPhotoUrls);
     const productsWithPhotos = await Promise.all(products.map(async product => {
       if (!product.product_photo_path) return { ...product, photo_url: null };
       try {
         const { data: signedPhoto, error: photoError } = await state.supabase.storage.from('product-photos').createSignedUrl(product.product_photo_path, 300);
         if (photoError || !signedPhoto?.signedUrl) return { ...product, photo_url: null };
-        return { ...product, photo_url: signedPhoto.signedUrl };
+        const thumbnail = await productThumbnailUrl(signedPhoto.signedUrl);
+        if (thumbnail.startsWith('blob:')) state.publicProductPhotoUrls.set(product.product_photo_path, thumbnail);
+        return { ...product, photo_url: thumbnail };
       } catch { return { ...product, photo_url: null }; }
     }));
     list.innerHTML = productsWithPhotos.map((product, index) => {
@@ -277,6 +338,7 @@ function openProductEditor(productId) {
 function clearProductPhotoPreview() {
   const preview = $('#product-photo-preview');
   if (!preview) return;
+  preview.dataset.requestId = String((Number(preview.dataset.requestId) || 0) + 1);
   if (preview.dataset.thumbnailUrl) URL.revokeObjectURL(preview.dataset.thumbnailUrl);
   delete preview.dataset.thumbnailUrl;
   preview.removeAttribute('src');
@@ -285,10 +347,21 @@ function clearProductPhotoPreview() {
 function previewProductPhoto(file) {
   const preview = $('#product-photo-preview');
   if (!file || !preview) return;
+  const requestId = String((Number(preview.dataset.requestId) || 0) + 1);
+  preview.dataset.requestId = requestId;
   if (preview.dataset.thumbnailUrl) URL.revokeObjectURL(preview.dataset.thumbnailUrl);
-  preview.dataset.thumbnailUrl = URL.createObjectURL(file);
-  preview.src = preview.dataset.thumbnailUrl;
-  preview.classList.remove('hidden');
+  trimProductPhoto(file).then(blob => {
+    if (preview.dataset.requestId !== requestId) return;
+    if (preview.dataset.thumbnailUrl) URL.revokeObjectURL(preview.dataset.thumbnailUrl);
+    preview.dataset.thumbnailUrl = URL.createObjectURL(blob);
+    preview.src = preview.dataset.thumbnailUrl;
+    preview.classList.remove('hidden');
+  }).catch(() => {
+    if (preview.dataset.requestId !== requestId) return;
+    preview.dataset.thumbnailUrl = URL.createObjectURL(file);
+    preview.src = preview.dataset.thumbnailUrl;
+    preview.classList.remove('hidden');
+  });
 }
 function populateTransactionMemoOptions() {
   const picker = $('#transaction-memo-picker');
@@ -477,11 +550,11 @@ async function loadState() {
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.products = productsResult.data || [];
-  state.productPhotoUrls.clear();
+  clearObjectUrls(state.productPhotoUrls);
   await Promise.all(state.products.filter(product => product.photo_path).map(async product => {
     try {
       const { data, error } = await state.supabase.storage.from('product-photos').createSignedUrl(product.photo_path, 3600);
-      if (!error && data?.signedUrl) state.productPhotoUrls.set(product.id, data.signedUrl);
+      if (!error && data?.signedUrl) state.productPhotoUrls.set(product.id, await productThumbnailUrl(data.signedUrl));
     } catch { /* Keep the decorative artwork if a stored photo cannot be signed. */ }
   }));
   render();
