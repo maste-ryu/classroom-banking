@@ -30,3 +30,89 @@ small{font-size:1em}
 @media(max-width:600px){.public-screen>.public-content{margin-top:16px}.public-student-avatar{width:68px;height:68px;flex-basis:68px;border-radius:21px;font-size:24px}}
 .student-card-portrait{min-height:320px;flex-direction:row;justify-content:space-between;align-items:center;text-align:left;padding:28px;gap:20px}.student-card-profile{display:flex;align-items:center;gap:16px;min-width:0;flex:1}.student-card-portrait .student-avatar{width:84px;height:84px;flex:0 0 84px;border-radius:26px;font-size:30px}.student-card-portrait .student-info{flex:0 1 auto;min-width:0}.student-card-portrait .student-info h3{font-size:17px;margin:0 0 6px}.student-card-portrait .student-info small{font-size:16px}.student-card-balance-panel{min-width:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:0 0 auto}.student-card-portrait .student-coin-area{display:flex;flex-direction:column;align-items:center;gap:5px}.student-card-portrait .student-coin-stack{width:112px;margin:0;transform:none;transform-origin:center}.student-card-portrait .student-coin-stack .coin{left:32px}.student-card-portrait .student-coin-caption{font-size:16px;color:#9fa09b;margin:0}.student-card-portrait .student-money{text-align:center}.student-card-portrait .student-money b{font-size:21px}.student-card-portrait .student-money small{font-size:16px}
 @media(max-width:560px){#overview-students.student-grid{grid-template-columns:1fr;gap:12px}.student-card-portrait{min-height:240px;padding:18px 16px;gap:12px}.student-card-profile{gap:10px}.student-card-portrait .student-avatar{width:68px;height:68px;flex-basis:68px;border-radius:21px;font-size:24px}.student-card-balance-panel{min-width:105px}.student-card-portrait .student-coin-stack{width:100px}.student-card-portrait .student-coin-stack .coin{left:26px}.student-card-portrait .student-money b{font-size:19px}}
+
+@media(min-width:761px) and (max-width:1000px){.ledger-head,.ledger-row{grid-template-columns:minmax(118px,1.1fr) minmax(88px,.8fr) minmax(108px,1fr) minmax(76px,.7fr);gap:8px;padding:12px}}
+@media(max-width:760px){
+  html,body{min-width:320px;overflow-x:hidden}
+  .app-shell,.main-area,.page{min-width:0}
+  .sidebar{padding:calc(8px + env(safe-area-inset-top)) 12px 7px}
+  .brand{min-width:0;padding:0 3px 7px;gap:9px}
+  .brand>span:last-child{min-width:0}
+  .brand b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .main-nav{scrollbar-width:none;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding-bottom:2px}
+  .main-nav::-webkit-scrollbar{display:none}
+  .nav-item{min-height:44px;flex:0 0 auto;scroll-snap-align:start;padding:8px 11px}
+  .main-area{padding:0 14px calc(22px + env(safe-area-inset-bottom))}
+  .topbar{height:68px;margin-bottom:18px}
+  .topbar h1{font-size:19px}
+  .teacher-avatar{width:34px;height:34px;flex:0 0 34px}
+  .welcome-row,.page-intro{flex-direction:column;align-items:stretch;gap:12px;margin-bottom:19px}
+  .welcome-row>div,.page-intro>div{min-width:0}
+  .welcome-row h2,.page-intro h2{font-size:16px;line-height:1.5}
+  .welcome-row p,.page-intro p{max-width:none;font-size:16px;line-height:1.6}
+  .welcome-row>.button,.page-intro>.button{width:100%;min-height:44px;white-space:normal;padding:10px 13px}
+  .section-block{margin-top:25px}
+  .section-heading{gap:8px;align-items:center}
+  .section-heading .eyebrow{font-size:13px;letter-spacing:.12em}
+  .section-heading h2{font-size:16px}
+  .text-button{min-height:40px;padding:7px 3px;white-space:nowrap}
+  .student-grid,.products-grid{grid-template-columns:minmax(0,1fr)}
+  .student-card{min-width:0}
+  .product-card{min-width:0;padding:15px}
+  .product-card-actions{grid-template-columns:1fr}
+  .product-card-actions .button{min-height:44px}
+  .filter-row{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;margin-bottom:12px}
+  .search-box{width:100%;max-width:none;height:44px}
+  .search-box input{min-width:0}
+  .filter-row select{width:100%;min-width:0;height:44px}
+  .ledger-head{display:none}
+  .ledger-row{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 10px;padding:12px}
+  .ledger-name{grid-column:1;grid-row:1;gap:7px}
+  .ledger-name strong{font-size:14px}
+  .row-date{display:block;font-size:12px;color:#a0a098;font-weight:400;margin-top:2px}
+  .amount-cell{grid-column:2;grid-row:1;white-space:nowrap;font-size:15px}
+  .type-pill{grid-column:1;grid-row:2;font-size:13px;white-space:nowrap}
+  .ledger-row .memo-cell{display:block;grid-column:2;grid-row:2;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:right;font-size:13px;line-height:1.45}
+  .memo-cell .row-actor{display:none}
+  .modal{width:calc(100% - 20px);max-width:520px;max-height:calc(100dvh - 20px);border-radius:14px}
+  .modal-content{max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;padding:18px 16px;gap:12px}
+  .modal-content input,.modal-content select,.stack-form input{min-height:44px}
+  .modal-actions{gap:9px}
+  .modal-actions .button{min-height:44px;flex:1}
+  .login-screen,.setup-screen{min-height:100dvh;padding:16px}
+  .login-card,.setup-card{padding:25px 20px}
+  .public-screen{padding:0 12px calc(24px + env(safe-area-inset-bottom))}
+  .public-header{height:64px;gap:10px}
+  .public-brand{min-width:0}
+  .public-brand b{font-size:14px}
+  .public-brand small{font-size:11px;letter-spacing:.1em}
+  .public-header .button{min-height:42px;padding:8px 10px}
+  .public-content{width:100%;margin-top:20px}
+  .public-heading{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:18px}
+  .public-heading h1{font-size:28px}
+  .public-heading p:last-child{max-width:none;line-height:1.55}
+  .public-heading>.button{width:100%;min-height:44px}
+  .public-total{gap:10px;padding:15px;margin-bottom:20px}
+  .public-total>strong{font-size:30px}
+  .public-list-heading{gap:8px}
+  .public-student-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .public-student-group{grid-template-rows:auto auto;gap:8px}
+  .public-student-ledger{height:260px}
+  .public-products-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .public-product-info{padding:11px}
+  .public-product-art{height:92px}
+}
+@media(max-width:390px){
+  .main-area{padding-left:11px;padding-right:11px}
+  .brand small{font-size:10px;letter-spacing:.08em}
+  .nav-item{gap:7px;padding-inline:9px}
+  .public-screen{padding-left:10px;padding-right:10px}
+  .public-header .button{font-size:13px;padding-inline:8px}
+  .public-products-grid{grid-template-columns:minmax(0,1fr)}
+  .public-product-art{height:112px}
+  .public-product-info{padding:13px}
+  .public-product-bottom{align-items:center;flex-direction:row}
+  .public-total{padding:13px}
+  .public-total>strong{font-size:27px}
+  .student-card-portrait{min-height:220px;padding:15px 12px}
+}
