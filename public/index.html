@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261007-home-layout">
+  <link rel="stylesheet" href="./styles.css?v=20261007-product-photos">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261007-ledger-label-order" defer></script>
+  <script src="./app.js?v=20261007-product-photos" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -219,6 +219,9 @@
     <form id="product-form" class="modal-content">
       <div class="modal-heading"><div><p id="product-dialog-eyebrow" class="eyebrow">NEW REWARD</p><h2 id="product-dialog-title">新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
       <input type="hidden" name="product_id">
+      <img id="product-photo-preview" class="product-photo-preview hidden" alt="商品照片預覽">
+      <label>商品照片<input id="product-photo-input" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <p class="form-hint">支援 JPG、PNG、WebP，檔案上限 5 MB。可隨時更換照片。</p>
       <label>商品名稱<input name="name" maxlength="100" required></label>
       <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option></select></label>
       <label>兌換薪元<input name="price" type="number" min="1" step="1" required></label>

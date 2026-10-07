@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -106,10 +106,18 @@ async function loadPublicStore() {
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
       return;
     }
-    list.innerHTML = products.map((product, index) => {
+    const productsWithPhotos = await Promise.all(products.map(async product => {
+      if (!product.product_photo_path) return { ...product, photo_url: null };
+      try {
+        const { data: signedPhoto, error: photoError } = await state.supabase.storage.from('product-photos').createSignedUrl(product.product_photo_path, 300);
+        return { ...product, photo_url: photoError ? null : signedPhoto?.signedUrl || null };
+      } catch { return { ...product, photo_url: null }; }
+    }));
+    list.innerHTML = productsWithPhotos.map((product, index) => {
       const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
       const type = product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
-      return `<article class="public-product-card"><div class="public-product-art" aria-hidden="true">${['✦', '◈', '✿'][index % 3]}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
+      const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
+      return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
     }).join('');
   } catch (error) {
     list.innerHTML = `<div class="empty-state panel">讀取班級商店失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
@@ -159,7 +167,12 @@ function studentCard(student, editable = false, portrait = false, maximumBalance
   const coinCount = coinCountFor(balance, maximumBalance);
   const stackHeight = Math.max(24, 18 + coinCount * 11);
   const coinStack = portrait ? `<div class="student-coin-area"><div class="coin-stack student-coin-stack" style="height:${stackHeight}px" aria-label="金幣堆疊，高度依帳戶餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><small class="student-coin-caption">金幣堆疊</small></div>` : '';
-  return `<article class="student-card${portrait ? ' student-card-portrait' : ''}"><div class="student-avatar">${avatar}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div>${coinStack}<div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div>${editButton}</article>`;
+  const profile = `<div class="student-avatar">${avatar}</div><div class="student-info"><h3>${escapeHtml(student.name)}</h3><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></div>`;
+  const moneyInfo = `<div class="student-money"><b class="${negative ? 'amount-cell negative' : ''}">${money(balance)}</b><small>${negative ? '負債狀態' : '帳戶總餘額'}</small></div>`;
+  const cardContent = portrait
+    ? `<div class="student-card-profile">${profile}</div><div class="student-card-balance-panel">${coinStack}${moneyInfo}</div>`
+    : `${profile}${moneyInfo}`;
+  return `<article class="student-card${portrait ? ' student-card-portrait' : ''}">${cardContent}${editButton}</article>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -211,7 +224,11 @@ function renderProducts() {
     target.innerHTML = '<div class="empty-state panel">商店目前沒有商品，教師可以新增第一項獎勵。</div>';
     return;
   }
-  target.innerHTML = state.products.filter(product => product.is_active).map((product, index) => `<article class="product-card"><div class="product-art">${['✦', '◈', '✿'][index % 3]}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><div class="product-card-actions"><button class="button secondary" data-edit-product="${escapeHtml(product.id)}">編輯商品</button><button class="button primary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div></article>`).join('') || '<div class="empty-state panel">目前沒有啟用中的商品。</div>';
+  target.innerHTML = state.products.filter(product => product.is_active).map((product, index) => {
+    const photoUrl = state.productPhotoUrls.get(product.id);
+    const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
+    return `<article class="product-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><div class="product-card-actions"><button class="button secondary" data-edit-product="${escapeHtml(product.id)}">編輯商品</button><button class="button primary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div></article>`;
+  }).join('') || '<div class="empty-state panel">目前沒有啟用中的商品。</div>';
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
@@ -228,6 +245,7 @@ function openDialog(id) {
     $('#product-dialog-eyebrow').textContent = 'NEW REWARD';
     $('#product-dialog-title').textContent = '新增商店商品';
     $('#product-submit-button').textContent = '新增商品';
+    clearProductPhotoPreview();
   }
   dialog.querySelector('.dialog-error')?.replaceChildren();
   if (id === 'transaction-dialog') populateTransactionMemoOptions();
@@ -244,11 +262,27 @@ function openProductEditor(productId) {
   form.elements.price.value = product.price;
   form.elements.description.value = product.description || '';
   form.elements.stock.value = product.stock_quantity ?? '';
+  const preview = $('#product-photo-preview');
+  const photoUrl = state.productPhotoUrls.get(product.id);
+  if (photoUrl) { preview.src = photoUrl; preview.classList.remove('hidden'); }
+  else { preview.removeAttribute('src'); preview.classList.add('hidden'); }
   $('.dialog-error', form).textContent = '';
   $('#product-dialog-eyebrow').textContent = 'EDIT REWARD';
   $('#product-dialog-title').textContent = '編輯商店商品';
   $('#product-submit-button').textContent = '儲存修改';
   $('#product-dialog').showModal();
+}
+function clearProductPhotoPreview() {
+  const preview = $('#product-photo-preview');
+  if (!preview) return;
+  preview.removeAttribute('src');
+  preview.classList.add('hidden');
+}
+function previewProductPhoto(file) {
+  const preview = $('#product-photo-preview');
+  if (!file || !preview) return;
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
 }
 function populateTransactionMemoOptions() {
   const picker = $('#transaction-memo-picker');
@@ -406,6 +440,7 @@ function setupDialogs() {
   $('#student-form').addEventListener('submit', submitStudent);
   $('#student-edit-form').addEventListener('submit', submitStudentEdit);
   $('#product-form').addEventListener('submit', submitProduct);
+  $('#product-photo-input').addEventListener('change', event => previewProductPhoto(event.target.files?.[0]));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') $$('dialog[open]').forEach(dialog => dialog.close()); });
 }
 function updateRedemptionPreview() {
@@ -422,7 +457,7 @@ async function loadState() {
     state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
     state.supabase.from('account_balances').select('student_id,balance').eq('classroom_id', state.classroomId),
     state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by,actor:profiles!transactions_created_by_fkey(display_name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
-    state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
+    state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active,photo_path').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
   ]);
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
   state.students = studentsResult.data || [];
@@ -436,6 +471,13 @@ async function loadState() {
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.products = productsResult.data || [];
+  state.productPhotoUrls.clear();
+  await Promise.all(state.products.filter(product => product.photo_path).map(async product => {
+    try {
+      const { data, error } = await state.supabase.storage.from('product-photos').createSignedUrl(product.photo_path, 3600);
+      if (!error && data?.signedUrl) state.productPhotoUrls.set(product.id, data.signedUrl);
+    } catch { /* Keep the decorative artwork if a stored photo cannot be signed. */ }
+  }));
   render();
 }
 async function submitTransaction(event) {
@@ -492,13 +534,45 @@ async function submitProduct(event) {
   const values = new FormData(form);
   const stock = String(values.get('stock') || '').trim();
   const productId = String(values.get('product_id') || '').trim();
+  const file = values.get('photo');
+  const error = $('.dialog-error', form);
+  const submitButton = $('#product-submit-button');
+  const originalLabel = submitButton.textContent;
+  if (file?.size && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError(error, '照片請使用 JPG、PNG 或 WebP 格式。'); return; }
+  if (file?.size > 5 * 1024 * 1024) { showError(error, '照片大小不可超過 5 MB。'); return; }
   const changes = { name: String(values.get('name')).trim(), product_type: values.get('product_type'), price: Number(values.get('price')), description: String(values.get('description') || '').trim() || null, stock_quantity: stock ? Number(stock) : null };
-  const result = productId
-    ? await state.supabase.from('store_products').update(changes).eq('id', productId).eq('classroom_id', state.classroomId).select('id').single()
-    : await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, ...changes, is_active: true }).select('id').single();
-  if (result.error) { showError($('.dialog-error', form), errorMessage(result.error)); return; }
-  form.closest('dialog').close(); form.reset();
-  await refreshAfterMutation(productId ? '商店商品已更新' : '商店商品已新增');
+  const existingProduct = state.products.find(product => product.id === productId);
+  let uploadedPath = null;
+  error.textContent = '';
+  submitButton.disabled = true;
+  submitButton.textContent = '儲存中…';
+  try {
+    if (file?.size) {
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      uploadedPath = `${state.classroomId}/${uniqueName}.${extension}`;
+      const upload = await state.supabase.storage.from('product-photos').upload(uploadedPath, file, { contentType: file.type, upsert: false });
+      if (upload.error) { showError(error, errorMessage(upload.error)); return; }
+      changes.photo_path = uploadedPath;
+    }
+    const result = productId
+      ? await state.supabase.from('store_products').update(changes).eq('id', productId).eq('classroom_id', state.classroomId).select('id').single()
+      : await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, ...changes, is_active: true }).select('id').single();
+    if (result.error) {
+      if (uploadedPath) await state.supabase.storage.from('product-photos').remove([uploadedPath]);
+      showError(error, errorMessage(result.error));
+      return;
+    }
+    form.closest('dialog').close(); form.reset();
+    if (uploadedPath && existingProduct?.photo_path) await state.supabase.storage.from('product-photos').remove([existingProduct.photo_path]);
+    await refreshAfterMutation(productId ? '商店商品已更新' : '商店商品已新增');
+  } catch (requestError) {
+    if (uploadedPath) await state.supabase.storage.from('product-photos').remove([uploadedPath]);
+    showError(error, errorMessage(requestError));
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = originalLabel;
+  }
 }
 async function refreshAfterMutation(message) {
   try { await loadState(); toast(message); }
