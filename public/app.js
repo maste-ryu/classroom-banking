@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicProductPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -68,13 +68,6 @@ async function trimProductPhoto(source) {
     outputContext.drawImage(bitmap, x, y, cropWidth, cropHeight, 0, 0, output.width, output.height);
     return await new Promise((resolve, reject) => output.toBlob(blob => blob ? resolve(blob) : reject(new Error('thumbnail failed')), 'image/jpeg', 0.88));
   } finally { bitmap.close?.(); }
-}
-async function productThumbnailUrl(imageUrl) {
-  try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) return imageUrl;
-    return URL.createObjectURL(await trimProductPhoto(await response.blob()));
-  } catch { return imageUrl; }
 }
 function showPublicHome() {
   hide('setup-screen'); hide('login-screen'); hide('app'); show('public-screen');
@@ -160,19 +153,15 @@ async function loadPublicStore() {
     if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
     $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
     if (!products.length) {
-      clearObjectUrls(state.publicProductPhotoUrls);
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
       return;
     }
-    clearObjectUrls(state.publicProductPhotoUrls);
     const productsWithPhotos = await Promise.all(products.map(async product => {
       if (!product.product_photo_path) return { ...product, photo_url: null };
       try {
         const { data: signedPhoto, error: photoError } = await state.supabase.storage.from('product-photos').createSignedUrl(product.product_photo_path, 300);
         if (photoError || !signedPhoto?.signedUrl) return { ...product, photo_url: null };
-        const thumbnail = await productThumbnailUrl(signedPhoto.signedUrl);
-        if (thumbnail.startsWith('blob:')) state.publicProductPhotoUrls.set(product.product_photo_path, thumbnail);
-        return { ...product, photo_url: thumbnail };
+        return { ...product, photo_url: signedPhoto.signedUrl };
       } catch { return { ...product, photo_url: null }; }
     }));
     list.innerHTML = productsWithPhotos.map((product, index) => {
@@ -554,7 +543,7 @@ async function loadState() {
   await Promise.all(state.products.filter(product => product.photo_path).map(async product => {
     try {
       const { data, error } = await state.supabase.storage.from('product-photos').createSignedUrl(product.photo_path, 3600);
-      if (!error && data?.signedUrl) state.productPhotoUrls.set(product.id, await productThumbnailUrl(data.signedUrl));
+      if (!error && data?.signedUrl) state.productPhotoUrls.set(product.id, data.signedUrl);
     } catch { /* Keep the decorative artwork if a stored photo cannot be signed. */ }
   }));
   render();
@@ -627,10 +616,17 @@ async function submitProduct(event) {
   submitButton.textContent = '儲存中…';
   try {
     if (file?.size) {
-      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      let extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      let contentType = file.type;
       const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      let photoToUpload = file;
+      try {
+        photoToUpload = await trimProductPhoto(file);
+        extension = 'jpg';
+        contentType = 'image/jpeg';
+      } catch { /* Keep the original if thumbnail processing is unavailable. */ }
       uploadedPath = `${state.classroomId}/${uniqueName}.${extension}`;
-      const upload = await state.supabase.storage.from('product-photos').upload(uploadedPath, file, { contentType: file.type, upsert: false });
+      const upload = await state.supabase.storage.from('product-photos').upload(uploadedPath, photoToUpload, { contentType, upsert: false });
       if (upload.error) { showError(error, errorMessage(upload.error)); return; }
       changes.photo_path = uploadedPath;
     }
