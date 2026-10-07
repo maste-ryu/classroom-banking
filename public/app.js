@@ -157,7 +157,8 @@ function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
   const amount = Number(transaction.amount);
   const timestamp = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-  const actor = transaction.created_by ? `操作人 ${escapeHtml(transaction.created_by.slice(0, 8))}` : '操作人';
+  const actorName = transaction.actor?.display_name?.trim();
+  const actor = actorName ? `操作人 ${escapeHtml(actorName)}` : '操作人';
   return `<div class="ledger-row"><div class="ledger-name"><span class="mini-avatar">${escapeHtml(avatarText(student.name))}</span><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
 }
 function renderLedger(target, transactions) {
@@ -410,7 +411,7 @@ async function loadState() {
   const [studentsResult, balancesResult, transactionsResult, productsResult] = await Promise.all([
     state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
     state.supabase.from('account_balances').select('student_id,balance').eq('classroom_id', state.classroomId),
-    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
+    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by,actor:profiles!transactions_created_by_fkey(display_name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
     state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
   ]);
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
