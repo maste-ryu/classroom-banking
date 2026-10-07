@@ -477,7 +477,7 @@ async function loadState() {
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.products = productsResult.data || [];
-  clearObjectUrls(state.productPhotoUrls);
+  state.productPhotoUrls.clear();
   await Promise.all(state.products.filter(product => product.photo_path).map(async product => {
     try {
       const { data, error } = await state.supabase.storage.from('product-photos').createSignedUrl(product.photo_path, 3600);
