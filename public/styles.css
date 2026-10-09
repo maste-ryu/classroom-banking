@@ -192,12 +192,15 @@ small{font-size:1em}
 .quick-nav-item{padding:8px 13px}
 
 @media(max-width:760px){
-  .sidebar{padding:10px 13px 9px}
-  .brand{padding:0 4px 7px}
-  .main-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible;padding:0;scroll-snap-type:none}
+  .sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand logout" "main main" "quick quick";align-items:center;gap:0;padding:10px 13px 9px}
+  .brand{grid-area:brand;min-width:0;padding:0 4px 7px}
+  .sidebar-bottom{display:contents}
+  .secure-badge{display:none}
+  .signout-button{grid-area:logout;justify-self:end;min-height:44px;padding:8px 11px;border-radius:9px;background:#f0eee7;color:#5c6064;font-size:13px;white-space:nowrap}
+  .main-nav{grid-area:main;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible;padding:0;scroll-snap-type:none}
   .nav-item{width:100%;min-width:0;min-height:44px;flex:none;justify-content:center;gap:4px;padding:7px 4px;font-size:13px;white-space:nowrap;scroll-snap-align:none}
   .nav-icon{width:14px;font-size:14px}
-  .quick-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px}
+  .quick-nav{grid-area:quick;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px}
   .quick-nav-item{min-height:44px;justify-content:center;gap:6px;padding:7px 8px;border-radius:9px;font-size:13px;white-space:nowrap}
   .quick-nav-item .nav-icon{width:16px;font-size:14px}
 }
