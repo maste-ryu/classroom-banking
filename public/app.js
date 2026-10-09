@@ -233,15 +233,53 @@ function transactionRow(transaction) {
   const timestamp = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const actorName = transaction.actor?.display_name?.trim();
   const actor = actorName ? `操作人 ${escapeHtml(actorName)}` : '操作人';
-  const note = transaction.note ? `<small class="row-note">備註：${escapeHtml(transaction.note)}</small>` : '';
-  return `<div class="ledger-row"><div class="ledger-name"><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}${note}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
+  return `<div class="ledger-row" data-transaction-row="${escapeHtml(transaction.id)}"><div class="ledger-name"><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><div class="memo-cell"><input class="transaction-edit-input" data-edit-memo aria-label="${escapeHtml(student.name)}交易項目" maxlength="240" value="${escapeHtml(transaction.memo)}"><input class="transaction-edit-input" data-edit-note aria-label="${escapeHtml(student.name)}交易備註" maxlength="240" placeholder="備註（選填）" value="${escapeHtml(transaction.note || '')}"><small class="row-actor">${actor}</small></div><label class="transaction-amount-editor"><span class="visually-hidden">交易金額</span><input data-edit-amount aria-label="${escapeHtml(student.name)}交易金額" type="number" step="1" value="${amount}"></label><div class="ledger-row-actions"><button class="button secondary" type="button" data-save-transaction="${escapeHtml(transaction.id)}">儲存</button><button class="button danger" type="button" data-delete-transaction="${escapeHtml(transaction.id)}">刪除</button></div></div>`;
 }
 function renderLedger(target, transactions) {
   if (!transactions.length) {
     target.innerHTML = '<div class="empty-state">目前沒有交易紀錄</div>';
     return;
   }
-  target.innerHTML = `<div class="ledger-head"><span>學生 / 日期</span><span>交易類型</span><span>交易備註 / 操作人</span><span class="align-right">金額</span></div>${transactions.map(transactionRow).join('')}`;
+  target.innerHTML = `<div class="ledger-head"><span>學生 / 日期</span><span>交易類型</span><span>項目 / 備註 / 操作人</span><span class="align-right">金額</span><span class="align-right">操作</span></div>${transactions.map(transactionRow).join('')}`;
+}
+async function saveTransactionEdit(button) {
+  const row = button.closest('[data-transaction-row]');
+  const transaction = state.transactions.find(item => item.id === row?.dataset.transactionRow);
+  if (!row || !transaction) return;
+  const memo = $('[data-edit-memo]', row).value.trim();
+  const note = $('[data-edit-note]', row).value.trim();
+  const amount = Number($('[data-edit-amount]', row).value);
+  if (!memo || memo.length > 240) { toast('交易項目不可空白，且最多 240 個字。'); return; }
+  if (note.length > 240) { toast('備註最多 240 個字。'); return; }
+  if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 2147483647) { toast('金額必須是有效的非零整數。'); return; }
+  if ((transaction.transaction_type === 'reward' && amount < 0) || (['penalty', 'purchase'].includes(transaction.transaction_type) && amount > 0)) {
+    toast('金額正負需符合交易類型。'); return;
+  }
+  const controls = $$('input,button', row);
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    const { error } = await state.supabase.from('transactions').update({ memo, note: note || null, amount }).eq('id', transaction.id).eq('classroom_id', state.classroomId).select('id').single();
+    if (error) throw error;
+    await refreshAfterMutation('交易資料已更新');
+  } catch (error) {
+    toast(`更新失敗：${errorMessage(error)}`);
+    controls.forEach(control => { control.disabled = false; });
+  }
+}
+async function deleteTransaction(button) {
+  const transaction = state.transactions.find(item => item.id === button.dataset.deleteTransaction);
+  if (!transaction) return;
+  const inventoryNotice = transaction.transaction_type === 'purchase' ? '若是商品兌換，商品庫存也會加回。' : '';
+  if (!window.confirm(`確定刪除此筆交易？學生餘額會依剩餘交易重新計算。${inventoryNotice}`)) return;
+  button.disabled = true;
+  try {
+    const { error } = await state.supabase.rpc('delete_transaction', { p_transaction_id: transaction.id });
+    if (error) throw error;
+    await refreshAfterMutation('交易已刪除');
+  } catch (error) {
+    toast(`刪除失敗：${errorMessage(error)}`);
+    button.disabled = false;
+  }
 }
 function render() {
   if (!state.balances.size) state.balances = new Map(state.students.map(student => [student.id, 0]));
@@ -482,6 +520,10 @@ function setupDialogs() {
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   document.addEventListener('click', event => {
+    const saveTransaction = event.target.closest('[data-save-transaction]');
+    if (saveTransaction) { saveTransactionEdit(saveTransaction); return; }
+    const deleteTransactionButton = event.target.closest('[data-delete-transaction]');
+    if (deleteTransactionButton) { deleteTransaction(deleteTransactionButton); return; }
     const editProduct = event.target.closest('[data-edit-product]');
     if (editProduct) { openProductEditor(editProduct.dataset.editProduct); return; }
     const editStudent = event.target.closest('[data-edit-student]');
