@@ -181,3 +181,28 @@ small{font-size:1em}
   .public-student-balance{grid-column:1;grid-row:1;justify-self:end;text-align:right}
   .public-balance-panel>small{grid-column:1;grid-row:2;justify-self:end;text-align:right}
 }
+
+/* Keep the teacher navigation compact while preserving clear touch targets. */
+.sidebar{padding:24px 18px 16px}
+.brand{padding-bottom:25px}
+.side-label{padding-bottom:8px}
+.main-nav,.quick-nav{gap:3px}
+.nav-item{padding:9px 13px}
+.quick-nav-label{margin-top:18px;margin-bottom:7px}
+.quick-nav-item{padding:8px 13px}
+
+@media(max-width:760px){
+  .sidebar{padding:10px 13px 9px}
+  .brand{padding:0 4px 7px}
+  .main-nav{gap:5px}
+  .nav-item{min-height:44px;padding:8px 11px;font-size:14px}
+  .quick-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px}
+  .quick-nav-item{min-height:44px;justify-content:center;gap:6px;padding:7px 8px;border-radius:9px;font-size:13px;white-space:nowrap}
+  .quick-nav-item .nav-icon{width:16px;font-size:14px}
+}
+
+@media(max-width:390px){
+  .nav-item{padding-inline:9px;font-size:13px}
+  .quick-nav{gap:5px}
+  .quick-nav-item{gap:5px;padding-inline:6px;font-size:12px}
+}
