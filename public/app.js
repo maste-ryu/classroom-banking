@@ -116,7 +116,7 @@ async function loadPublicBalances() {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
           const amount = Number(transaction.amount || 0);
           const typeLabel = transaction.transaction_type === 'reward' ? '入帳' : transactionLabels[transaction.transaction_type] || '交易';
-          const note = transaction.note ? ` · 備註：${escapeHtml(transaction.note)}` : '';
+          const note = transaction.note ? ` · ${escapeHtml(transaction.note)}` : '';
           return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${typeLabel}${note}</small></div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
         }).join('')
         : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
