@@ -103,7 +103,6 @@ small{font-size:1em}
   .public-product-art{height:92px}
 }
 
-.public-ledger-row .public-ledger-note{color:#626a72}
 .row-note{display:block;color:#626a72}
 @media(max-width:390px){
   .main-area{padding-left:11px;padding-right:11px}

@@ -115,8 +115,9 @@ async function loadPublicBalances() {
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
           const amount = Number(transaction.amount || 0);
-          const note = transaction.note ? `<small class="public-ledger-note">備註：${escapeHtml(transaction.note)}</small>` : '';
-          return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${escapeHtml(transactionLabels[transaction.transaction_type] || '交易')}</small>${note}</div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
+          const typeLabel = transaction.transaction_type === 'reward' ? '入帳' : transactionLabels[transaction.transaction_type] || '交易';
+          const note = transaction.note ? ` · 備註：${escapeHtml(transaction.note)}` : '';
+          return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${typeLabel}${note}</small></div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
         }).join('')
         : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
       return `<div class="public-student-group"><article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article><section class="public-student-ledger" aria-label="${escapeHtml(student.student_name)}個人明細"><h2>${escapeHtml(student.student_name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
