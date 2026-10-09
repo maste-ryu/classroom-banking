@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261007-mobile-coins-right">
+  <link rel="stylesheet" href="./styles.css?v=20261009-transaction-notes">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261007-avatar-120" defer></script>
+  <script src="./app.js?v=20261009-transaction-notes" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -172,7 +172,8 @@
       <label>學生<select name="student_id" required></select></label>
       <label>交易類型<select name="transaction_type" required><option value="reward">薪資入帳</option><option value="penalty">扣薪</option><option value="adjustment">帳務更正</option></select></label>
       <label>金額<input name="amount" type="number" min="1" step="1" placeholder="輸入薪元金額" required></label>
-      <fieldset class="transaction-memo-fieldset"><legend>項目與備註</legend><div id="transaction-memo-picker" class="transaction-memo-picker" role="radiogroup" aria-label="選擇薪資入帳項目"></div></fieldset>
+      <fieldset class="transaction-memo-fieldset"><legend>項目</legend><div id="transaction-memo-picker" class="transaction-memo-picker" role="radiogroup" aria-label="選擇薪資入帳項目"></div></fieldset>
+      <label>備註（選填）<input name="note" type="text" maxlength="240" placeholder="輸入補充說明，會顯示在學生公開首頁"></label>
       <p class="form-hint">扣薪會自動以負數記錄。送出後將新增一筆交易，無重複入帳阻擋。</p>
       <p class="dialog-error" role="alert"></p>
       <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認入帳</button></div>

@@ -115,7 +115,8 @@ async function loadPublicBalances() {
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
           const amount = Number(transaction.amount || 0);
-          return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${escapeHtml(transactionLabels[transaction.transaction_type] || '交易')}</small></div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
+          const note = transaction.note ? `<small class="public-ledger-note">備註：${escapeHtml(transaction.note)}</small>` : '';
+          return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${escapeHtml(transactionLabels[transaction.transaction_type] || '交易')}</small>${note}</div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
         }).join('')
         : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
       return `<div class="public-student-group"><article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article><section class="public-student-ledger" aria-label="${escapeHtml(student.student_name)}個人明細"><h2>${escapeHtml(student.student_name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
@@ -231,7 +232,8 @@ function transactionRow(transaction) {
   const timestamp = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const actorName = transaction.actor?.display_name?.trim();
   const actor = actorName ? `操作人 ${escapeHtml(actorName)}` : '操作人';
-  return `<div class="ledger-row"><div class="ledger-name"><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
+  const note = transaction.note ? `<small class="row-note">備註：${escapeHtml(transaction.note)}</small>` : '';
+  return `<div class="ledger-row"><div class="ledger-name"><strong>${escapeHtml(student.name)}<small class="row-date">${timestamp}</small></strong></div><span class="type-pill ${escapeHtml(transaction.transaction_type)}">${transactionLabels[transaction.transaction_type] || '交易'}</span><span class="memo-cell" title="${escapeHtml(transaction.memo)}">${escapeHtml(transaction.memo)}${note}<small class="row-actor">${actor}</small></span><span class="amount-cell ${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</span></div>`;
 }
 function renderLedger(target, transactions) {
   if (!transactions.length) {
@@ -257,7 +259,7 @@ function renderFilteredTransactions() {
   const filtered = state.transactions.filter(transaction => {
     const student = transaction.students || getStudent(transaction.student_id) || {};
     const matchesType = type === 'all' || transaction.transaction_type === type;
-    const searchable = `${student.name || ''} ${transaction.memo || ''} ${transactionLabels[transaction.transaction_type] || ''}`.toLocaleLowerCase();
+    const searchable = `${student.name || ''} ${transaction.memo || ''} ${transaction.note || ''} ${transactionLabels[transaction.transaction_type] || ''}`.toLocaleLowerCase();
     return matchesType && searchable.includes(query);
   });
   renderLedger($('#all-transactions'), filtered);
@@ -524,7 +526,7 @@ async function loadState() {
   const [studentsResult, balancesResult, transactionsResult, productsResult] = await Promise.all([
     state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
     state.supabase.from('account_balances').select('student_id,balance').eq('classroom_id', state.classroomId),
-    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,created_at,created_by,actor:profiles!transactions_created_by_fkey(display_name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
+    state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,note,created_at,created_by,actor:profiles!transactions_created_by_fkey(display_name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
     state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active,photo_path').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
   ]);
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
@@ -558,7 +560,8 @@ async function submitTransaction(event) {
   if (type === 'penalty') amount = -Math.abs(amount);
   const error = $('.dialog-error', form);
   if (!Number.isSafeInteger(amount) || amount === 0) { showError(error, '請輸入有效的整數金額。'); return; }
-  const result = await state.supabase.from('transactions').insert({ classroom_id: state.classroomId, student_id: values.get('student_id'), transaction_type: type, amount, memo: String(values.get('memo')).trim() }).select('id').single();
+  const note = String(values.get('note') || '').trim();
+  const result = await state.supabase.from('transactions').insert({ classroom_id: state.classroomId, student_id: values.get('student_id'), transaction_type: type, amount, memo: String(values.get('memo')).trim(), note: note || null }).select('id').single();
   if (result.error) { showError(error, errorMessage(result.error)); return; }
   form.closest('dialog').close(); form.reset();
   await refreshAfterMutation('交易已入帳');
