@@ -260,6 +260,17 @@ function studentCard(student, editable = false, portrait = false, maximumBalance
     : `${profile}${moneyInfo}`;
   return `<article class="student-card${portrait ? ' student-card-portrait' : ''}">${cardContent}${editButton}</article>`;
 }
+function overviewStudentCard(student) {
+  const balance = currentBalance(student.id);
+  const photoUrl = state.photoUrls.get(student.id);
+  const avatar = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(student.name)}照片">` : '';
+  const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
+  const pikminUrl = state.pikminPhotoUrls.get(student.id) || (student.pikmin_photo_path ? null : bundledPikminArtUrl(student.name));
+  const pikminPanel = state.settings.showPikmin
+    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+    : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
+  return `<article class="public-student-card admin-overview-student-card"><div class="public-student-main"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.name)}</strong><small>${seat}</small></span></div><div class="public-balance-value"><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>${balance < 0 ? '負債狀態' : '帳戶總餘額'}</small></div></div>${pikminPanel}</article>`;
+}
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
   const amount = Number(transaction.amount);
@@ -317,8 +328,7 @@ async function deleteTransaction(button) {
 function render() {
   if (!state.balances.size) state.balances = new Map(state.students.map(student => [student.id, 0]));
   const overviewStudents = state.students.slice(0, 2);
-  const maximumBalance = Math.max(0, ...overviewStudents.map(student => currentBalance(student.id)));
-  $('#overview-students').innerHTML = overviewStudents.map(student => studentCard(student, false, true, maximumBalance)).join('') || '<div class="empty-state panel">新增學生後，帳戶會顯示在這裡。</div>';
+  $('#overview-students').innerHTML = overviewStudents.map(overviewStudentCard).join('') || '<div class="empty-state panel">新增學生後，帳戶會顯示在這裡。</div>';
   $('#all-students').innerHTML = state.students.map(student => studentCard(student, true)).join('') || '<div class="empty-state panel">尚未建立學生帳戶。</div>';
   renderLedger($('#recent-transactions'), state.transactions.slice(0, 6));
   renderFilteredTransactions();
