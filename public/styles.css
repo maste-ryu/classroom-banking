@@ -217,3 +217,13 @@ small{font-size:1em}
 @media(max-width:700px){.public-pikmin-inline-avatar{width:54px;height:54px;flex-basis:54px;border-radius:17px}.public-pikmin-intro{min-height:0}.public-pikmin-feature{min-height:180px}.pikmin-feature-balance .public-coin-stack .coin{left:calc(50% - 24px)}}
 .pikmin-store-heading button{margin-left:auto;white-space:nowrap}.pikmin-store-heading>div{flex:1;min-width:0}@media(max-width:540px){.pikmin-store-heading{flex-wrap:wrap}.pikmin-store-heading button{width:100%;margin-left:0}}
 .student-pikmin-collection b{font-size:10px;font-weight:800;color:#526d4b;white-space:nowrap}
+.public-student-profile:has(.student-pikmin-collection){align-items:center}
+.public-balance-panel{min-width:210px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.public-balance-value{display:flex;flex-direction:column;align-items:flex-end;gap:6px;white-space:nowrap}
+.public-balance-panel .student-pikmin-collection{max-width:65%;margin:0;justify-content:flex-start}
+.public-balance-panel .student-pikmin-collection span{font-size:12px}
+.public-balance-panel .student-pikmin-collection small{max-width:90px}
+.pikmin-feature-balance{align-items:flex-end}
+.pikmin-feature-balance .pikmin-owned-count{white-space:nowrap}
+@media(max-width:760px){.public-balance-panel{width:100%;min-width:0;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}.public-balance-panel .student-pikmin-collection{max-width:65%}.public-balance-value{margin-left:auto}}
+@media(max-width:430px){.public-balance-panel{align-items:flex-start}.public-balance-panel .student-pikmin-collection{max-width:58%}.public-balance-panel .student-pikmin-collection span{padding:3px 6px}.public-balance-panel .student-pikmin-collection small{max-width:62px}.public-student-balance{font-size:18px}}
