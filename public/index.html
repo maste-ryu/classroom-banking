@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261013-pikmin-layout">
+  <link rel="stylesheet" href="./styles.css?v=20261013-public-card-layout">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261013-pikmin-layout" defer></script>
+  <script src="./app.js?v=20261013-public-card-layout" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -25,12 +25,9 @@
     <nav class="public-view-tabs" aria-label="公開首頁內容">
       <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
       <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
+      <button id="public-pikmin-store-tab" type="button" class="public-store-cta" data-public-view="store">逛逛皮克敏專區 <span aria-hidden="true">→</span></button>
     </nav>
     <section id="public-balances-view" class="public-content public-balances-view">
-      <section class="public-pikmin-hero" aria-labelledby="public-pikmin-title">
-        <div class="public-pikmin-intro"><div id="public-pikmin-intro-student" class="public-pikmin-inline-profile"><span class="public-pikmin-inline-avatar">學</span><span><strong>學生帳戶</strong><small>成長夥伴</small></span></div><p class="eyebrow">A LITTLE FRIEND FOR EVERY STUDENT</p><h1 id="public-pikmin-title">讓皮克敏陪伴每一次成長</h1><p>皮克敏是學生用薪元購買的虛擬夥伴，也能在班級商店選購。已兌換的皮克敏會陪在學生帳戶旁，一起累積成長回憶。</p><button class="button primary" type="button" data-public-view="store">逛逛皮克敏專區 <span aria-hidden="true">→</span></button></div>
-        <div id="public-pikmin-feature" class="public-pikmin-feature"><div class="pikmin-feature-profile"><span class="public-pikmin-inline-avatar">學</span><span><strong>學生帳戶</strong><small>學生帳戶</small></span></div><div class="pikmin-feature-balance"><strong>$0</strong><small>帳戶總餘額</small></div></div>
-      </section>
       <div class="public-heading">
         <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">學生餘額總覽</h1></div>
         <button id="public-refresh" class="button primary" type="button">重新整理</button>
