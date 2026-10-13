@@ -103,6 +103,22 @@ async function loadPublicBalances() {
         return { ...student, photo_url: photoError ? null : signedPhoto?.signedUrl || null };
       } catch { return { ...student, photo_url: null }; }
     }));
+    const pikminPhotoUrls = new Map();
+    if (state.publicPikminEnabled && studentsWithPhotos.some(student => (student.pikmin_collection || []).length)) {
+      try {
+        const { data: storeProducts, error: storeError } = await state.supabase.rpc('public_classroom_store');
+        if (!storeError) {
+          const pikminProducts = (storeProducts || []).filter(product => product.product_type === 'pikmin');
+          await Promise.all(pikminProducts.map(async product => {
+            if (!product.product_photo_path) return;
+            try {
+              const { data: photo, error: photoError } = await state.supabase.storage.from('product-photos').createSignedUrl(product.product_photo_path, 300);
+              if (!photoError && photo?.signedUrl) pikminPhotoUrls.set(product.product_name, photo.signedUrl);
+            } catch {}
+          }));
+        }
+      } catch {}
+    }
     $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
     $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
     list.innerHTML = studentsWithPhotos.map(student => {
@@ -116,8 +132,11 @@ async function loadPublicBalances() {
         const name = item.product_name || '皮克敏夥伴';
         pikminCounts.set(name, (pikminCounts.get(name) || 0) + 1);
       });
-      const pikminItems = state.publicPikminEnabled ? [...pikminCounts].map(([name, count]) => `<span title="${escapeHtml(name)}，已收藏 ${count} 位">🌱 <small>${escapeHtml(name)}</small><b>×${count}</b></span>`).join('') : '';
-      const pikminPanel = `<div class="student-pikmin-panel"><strong>已收藏皮克敏</strong><div class="student-pikmin-collection" aria-label="已收藏皮克敏">${pikminItems || '<small class="student-pikmin-empty">尚未收藏</small>'}</div></div>`;
+      const pikminItems = state.publicPikminEnabled ? [...pikminCounts].map(([name, count]) => {
+        const photoUrl = pikminPhotoUrls.get(name);
+        return photoUrl ? `<span class="student-pikmin-item" title="${escapeHtml(name)}，已收藏 ${count} 位"><img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(name)}" loading="lazy">${count > 1 ? `<b aria-label="${count} 位">×${count}</b>` : ''}</span>` : `<span class="student-pikmin-item pikmin-image-missing" title="${escapeHtml(name)} 尚未設定商品圖片">尚無圖片</span>`;
+        }).join('') : '';
+      const pikminPanel = `<div class="student-pikmin-panel"><div class="student-pikmin-collection" aria-label="已收藏皮克敏">${pikminItems || '<small class="student-pikmin-empty">尚未收藏</small>'}</div></div>`;
       const detailRows = details.length
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
