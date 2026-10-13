@@ -991,7 +991,11 @@ async function initialize() {
   $('#public-home-link').addEventListener('click', showPublicHome);
   $('#public-refresh').addEventListener('click', loadPublicBalances);
   $('#public-store-refresh').addEventListener('click', loadPublicStore);
-  $$('[data-public-view]').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
+  $$('[data-public-view]').forEach(button => button.addEventListener('click', () => {
+    const category = button.dataset.publicStoreCategory;
+    if (category) setPublicStoreCategory(category);
+    setPublicView(button.dataset.publicView);
+  }));
   $$('[data-store-category]').forEach(button => button.addEventListener('click', () => setPublicStoreCategory(button.dataset.storeCategory)));
   $$('[data-admin-store-category]').forEach(button => button.addEventListener('click', () => setAdminStoreCategory(button.dataset.adminStoreCategory)));
   $('#settings-form').addEventListener('submit', submitSettings);
