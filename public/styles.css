@@ -251,3 +251,7 @@ small{font-size:1em}
 .admin-overview-student-card .student-pikmin-art img{max-height:250px}
 @media(max-width:760px){.admin-overview-student-card{min-height:250px;padding:22px 26px;grid-template-columns:minmax(0,1fr) minmax(115px,.72fr);gap:14px}.admin-overview-student-card .public-student-avatar{width:68px;height:68px;flex-basis:68px;border-radius:22px;font-size:25px}.admin-overview-student-card .student-pikmin-panel{padding-left:14px}}
 @media(max-width:600px){.admin-overview-student-card{min-height:220px;padding:18px 16px}.admin-overview-student-card .public-student-profile{gap:10px}.admin-overview-student-card .public-student-avatar{width:54px;height:54px;flex-basis:54px;border-radius:18px;font-size:20px}.admin-overview-student-card .student-pikmin-panel{padding-left:10px}.admin-overview-student-card .student-pikmin-art img{max-height:150px}}
+.pikmin-store-heading:has(.pikmin-store-banner-art)>div{flex:0 1 300px}
+.pikmin-store-banner-art{display:block;flex:0 1 360px;width:min(100%,360px);max-height:92px;margin-inline:auto;object-fit:contain;object-position:center;border-radius:8px}
+@media(max-width:760px){.pikmin-store-banner-art{flex-basis:320px;width:min(100%,440px);max-height:96px;margin:4px auto}}
+@media(max-width:540px){.pikmin-store-banner-art{flex-basis:100%;width:min(100%,440px);max-height:86px;margin:2px auto}}
