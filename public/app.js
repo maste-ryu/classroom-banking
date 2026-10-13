@@ -104,7 +104,7 @@ async function loadPublicBalances() {
       } catch { return { ...student, photo_url: null }; }
     }));
     const maximumBalance = Math.max(0, ...studentsWithPhotos.map(student => Number(student.balance || 0)));
-    const pikminOwned = studentsWithPhotos.flatMap(student => (student.transaction_details || []).filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin').map(item => ({ ...item, student_name: student.student_name })));
+    const pikminOwned = studentsWithPhotos.flatMap(student => (student.pikmin_collection || []).map(item => ({ ...item, student_name: student.student_name })));
     const introStudent = studentsWithPhotos[0];
     const exampleStudent = studentsWithPhotos[1] || introStudent;
     const profileHtml = student => `<span class="public-pikmin-inline-avatar">${escapeHtml(avatarText(student.student_name))}${student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : ''}</span><span><strong>${escapeHtml(student.student_name)}</strong><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></span>`;
@@ -113,7 +113,7 @@ async function loadPublicBalances() {
     if (hero && exampleStudent) {
       const exampleBalance = Number(exampleStudent.balance || 0);
       const exampleCoins = coinCountFor(exampleBalance, maximumBalance);
-      const examplePikminCount = (exampleStudent.transaction_details || []).filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin').length;
+      const examplePikminCount = (exampleStudent.pikmin_collection || []).length;
       hero.innerHTML = `<div class="pikmin-feature-profile">${profileHtml(exampleStudent)}</div><div class="pikmin-feature-balance"><div class="public-coin-stack" style="height:${Math.max(24, 18 + exampleCoins * 11)}px" role="img" aria-label="金幣堆疊 ${exampleCoins} 層">${stackCoins(exampleBalance, maximumBalance)}</div><strong>${money(exampleBalance)}</strong><small>帳戶總餘額</small></div>${state.publicPikminEnabled && examplePikminCount ? `<span class="pikmin-owned-count">🌱 已收藏 ${examplePikminCount} 位皮克敏</span>` : ''}`;
     }
     $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
@@ -125,8 +125,13 @@ async function loadPublicBalances() {
       const stackHeight = coinCount ? 18 + coinCount * 11 : 0;
       const avatar = student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : '';
       const details = student.transaction_details || [];
-      const ownedPikmin = details.filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin');
-      const pikminBadge = state.publicPikminEnabled && ownedPikmin.length ? `<div class="student-pikmin-collection" aria-label="已兌換皮克敏">${ownedPikmin.map(item => `<span title="${escapeHtml(item.product_name || '皮克敏夥伴')}">🌱 <small>${escapeHtml(item.product_name || '皮克敏')}</small></span>`).join('')}</div>` : '';
+      const ownedPikmin = student.pikmin_collection || [];
+      const pikminCounts = new Map();
+      ownedPikmin.forEach(item => {
+        const name = item.product_name || '皮克敏夥伴';
+        pikminCounts.set(name, (pikminCounts.get(name) || 0) + 1);
+      });
+      const pikminBadge = state.publicPikminEnabled && pikminCounts.size ? `<div class="student-pikmin-collection" aria-label="已收藏皮克敏">${[...pikminCounts].map(([name, count]) => `<span title="${escapeHtml(name)}，已收藏 ${count} 位">🌱 <small>${escapeHtml(name)}</small>${count > 1 ? `<b>×${count}</b>` : ''}</span>`).join('')}</div>` : '';
       const detailRows = details.length
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
