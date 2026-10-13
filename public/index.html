@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261013-pikmin-images">
+  <link rel="stylesheet" href="./styles.css?v=20261013-pikmin-art-admin-v3">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261013-pikmin-images" defer></script>
+  <script src="./app.js?v=20261013-pikmin-art-admin-v3" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -168,6 +168,11 @@
           <div class="memo-option-add"><label for="new-memo-option">新增項目</label><div><input id="new-memo-option" type="text" maxlength="80" placeholder="例如：完成作業"><button id="add-memo-option" type="button" class="button secondary">新增</button></div></div>
           <p id="memo-options-error" class="form-error" role="alert"></p>
           <p id="memo-options-status" class="form-hint" role="status"></p>
+        </section>
+        <section class="settings-card panel pikmin-art-management">
+          <div class="settings-card-heading"><p class="eyebrow">STUDENT PIKMIN ART</p><h2>學生皮克敏圖管理</h2><p class="form-hint">學生圖片會依檔名自動配對；教師可在此為各學生上傳或更換手繪圖。</p></div>
+          <div id="student-pikmin-art-list" class="student-pikmin-art-list" aria-live="polite"></div>
+          <p id="student-pikmin-art-status" class="form-hint" role="status"></p>
         </section>
       </div>
 

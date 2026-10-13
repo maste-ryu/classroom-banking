@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -16,6 +16,20 @@ function applyBranding(systemName, classroomName = '') {
   $$('.brand').forEach(node => { node.setAttribute('aria-label', `${name}首頁`); });
   const appClassroom = $('.welcome-row h2');
   if (appClassroom && classroomName) appClassroom.textContent = `${classroomName}，帳務一目了然。`;
+}
+
+async function ensurePikminArtManifest() {
+  if (state.pikminManifestLoaded) return;
+  state.pikminManifestLoaded = true;
+  try {
+    const response = await fetch('./pikmin/manifest.json', { cache: 'no-store' });
+    if (response.ok) state.bundledPikminArt = await response.json();
+  } catch { /* Managed uploads remain available when no bundled artwork exists. */ }
+}
+
+function bundledPikminArtUrl(studentName) {
+  const filename = state.bundledPikminArt[studentName];
+  return filename ? `./pikmin/${encodeURIComponent(filename)}` : null;
 }
 
 function showError(target, message) { target.textContent = message; }
@@ -87,6 +101,7 @@ async function loadPublicBalances() {
     const { data, error } = await state.supabase.rpc('public_classroom_balances');
     if (error) throw error;
     const students = data || [];
+    await ensurePikminArtManifest();
     if (students[0]?.system_name) applyBranding(students[0].system_name, students[0].classroom_name);
     state.publicPikminEnabled = students[0]?.public_pikmin_enabled !== false;
     $('#public-pikmin-store-tab')?.classList.toggle('hidden', !state.publicPikminEnabled);
@@ -104,21 +119,12 @@ async function loadPublicBalances() {
       } catch { return { ...student, photo_url: null }; }
     }));
     const pikminPhotoUrls = new Map();
-    if (state.publicPikminEnabled && studentsWithPhotos.some(student => (student.pikmin_collection || []).length)) {
+    if (state.publicPikminEnabled) await Promise.all(studentsWithPhotos.filter(student => student.student_pikmin_photo_path).map(async student => {
       try {
-        const { data: storeProducts, error: storeError } = await state.supabase.rpc('public_classroom_store');
-        if (!storeError) {
-          const pikminProducts = (storeProducts || []).filter(product => product.product_type === 'pikmin');
-          await Promise.all(pikminProducts.map(async product => {
-            if (!product.product_photo_path) return;
-            try {
-              const { data: photo, error: photoError } = await state.supabase.storage.from('product-photos').createSignedUrl(product.product_photo_path, 300);
-              if (!photoError && photo?.signedUrl) pikminPhotoUrls.set(product.product_name, photo.signedUrl);
-            } catch {}
-          }));
-        }
-      } catch {}
-    }
+        const { data: photo, error: photoError } = await state.supabase.storage.from('student-photos').createSignedUrl(student.student_pikmin_photo_path, 300);
+        if (!photoError && photo?.signedUrl) pikminPhotoUrls.set(student.student_pikmin_photo_path, photo.signedUrl);
+      } catch { /* Fall back to the file-name-matched bundled illustration. */ }
+    }));
     $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
     $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
     list.innerHTML = studentsWithPhotos.map(student => {
@@ -127,16 +133,11 @@ async function loadPublicBalances() {
       const avatar = student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : '';
       const details = student.transaction_details || [];
       const ownedPikmin = student.pikmin_collection || [];
-      const pikminCounts = new Map();
-      ownedPikmin.forEach(item => {
-        const name = item.product_name || '皮克敏夥伴';
-        pikminCounts.set(name, (pikminCounts.get(name) || 0) + 1);
-      });
-      const pikminItems = state.publicPikminEnabled ? [...pikminCounts].map(([name, count]) => {
-        const photoUrl = pikminPhotoUrls.get(name);
-        return photoUrl ? `<span class="student-pikmin-item" title="${escapeHtml(name)}，已收藏 ${count} 位"><img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(name)}" loading="lazy">${count > 1 ? `<b aria-label="${count} 位">×${count}</b>` : ''}</span>` : `<span class="student-pikmin-item pikmin-image-missing" title="${escapeHtml(name)} 尚未設定商品圖片">尚無圖片</span>`;
-        }).join('') : '';
-      const pikminPanel = `<div class="student-pikmin-panel"><div class="student-pikmin-collection" aria-label="已收藏皮克敏">${pikminItems || '<small class="student-pikmin-empty">尚未收藏</small>'}</div></div>`;
+      const pikminArtUrl = state.publicPikminEnabled ? pikminPhotoUrls.get(student.student_pikmin_photo_path) || (student.student_pikmin_photo_path ? null : bundledPikminArtUrl(student.student_name)) : null;
+      const pikminCount = ownedPikmin.length;
+      const pikminPanel = state.publicPikminEnabled
+        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy">${pikminCount ? `<b aria-label="已收藏 ${pikminCount} 隻">×${pikminCount}</b>` : ''}</div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+        : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
       const detailRows = details.length
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -323,6 +324,70 @@ function render() {
   renderFilteredTransactions();
   renderProducts();
   fillStudentSelects();
+  renderStudentPikminArt();
+}
+function renderStudentPikminArt() {
+  const list = $('#student-pikmin-art-list');
+  if (!list) return;
+  const status = $('#student-pikmin-art-status');
+  if (!state.pikminArtDbReady) status.textContent = '請先套用 Supabase migration 202610130003_student_pikmin_art.sql，再啟用換圖管理。';
+  if (!state.students.length) {
+    list.innerHTML = '<p class="student-pikmin-empty">請先建立學生帳戶。</p>';
+    return;
+  }
+  list.innerHTML = state.students.map(student => {
+    const imageUrl = state.pikminPhotoUrls.get(student.id) || bundledPikminArtUrl(student.name);
+    const managementControl = state.pikminArtDbReady ? `<label class="button secondary student-pikmin-art-upload">更換圖片<input type="file" accept="image/jpeg,image/png,image/webp" data-pikmin-art-input="${escapeHtml(student.id)}" aria-label="更換${escapeHtml(student.name)}的皮克敏圖片"></label>${student.pikmin_photo_path ? `<button type="button" class="button secondary student-pikmin-art-reset" data-reset-pikmin-art="${escapeHtml(student.id)}">恢復檔名配對</button>` : ''}` : '';
+    return `<article class="student-pikmin-art-row"><div class="student-pikmin-art-preview">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(student.name)}的皮克敏預覽">` : '<span>未設定</span>'}</div><div class="student-pikmin-art-info"><strong>${escapeHtml(student.name)}</strong><small>${student.pikmin_photo_path ? '使用教師上傳的圖片' : imageUrl ? `依檔名配對：${escapeHtml(student.name)}的皮克敏.png` : '尚未配對圖片'}</small></div>${managementControl}</article>`;
+  }).join('');
+}
+async function uploadStudentPikminArt(input) {
+  const student = getStudent(input.dataset.pikminArtInput);
+  const file = input.files?.[0];
+  const status = $('#student-pikmin-art-status');
+  input.value = '';
+  if (!state.pikminArtDbReady || !student || !file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { status.textContent = '圖片請使用 JPG、PNG 或 WebP 格式。'; return; }
+  if (file.size > 5 * 1024 * 1024) { status.textContent = '圖片大小不可超過 5 MB。'; return; }
+  const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+  const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const uploadedPath = `${state.classroomId}/${student.id}/pikmin-${uniqueName}.${extension}`;
+  const oldPath = student.pikmin_photo_path;
+  const buttons = $$('.student-pikmin-art-upload input', $('#student-pikmin-art-list'));
+  buttons.forEach(node => { node.disabled = true; });
+  status.textContent = `正在更新 ${student.name} 的皮克敏圖片…`;
+  try {
+    const upload = await state.supabase.storage.from('student-photos').upload(uploadedPath, file, { contentType: file.type, upsert: false });
+    if (upload.error) throw upload.error;
+    const update = await state.supabase.from('students').update({ pikmin_photo_path: uploadedPath }).eq('id', student.id).eq('classroom_id', state.classroomId).select('id').single();
+    if (update.error) {
+      await state.supabase.storage.from('student-photos').remove([uploadedPath]);
+      throw update.error;
+    }
+    if (oldPath) await state.supabase.storage.from('student-photos').remove([oldPath]);
+    await loadState();
+    status.textContent = `${student.name} 的皮克敏圖片已更新。`;
+  } catch (error) {
+    status.textContent = `更新失敗：${errorMessage(error)}`;
+  } finally {
+    buttons.forEach(node => { node.disabled = false; });
+  }
+}
+async function resetStudentPikminArt(studentId) {
+  const student = getStudent(studentId);
+  const status = $('#student-pikmin-art-status');
+  if (!state.pikminArtDbReady || !student?.pikmin_photo_path) return;
+  status.textContent = `正在恢復 ${student.name} 的檔名配對圖片…`;
+  try {
+    const oldPath = student.pikmin_photo_path;
+    const { error } = await state.supabase.from('students').update({ pikmin_photo_path: null }).eq('id', student.id).eq('classroom_id', state.classroomId);
+    if (error) throw error;
+    await state.supabase.storage.from('student-photos').remove([oldPath]);
+    await loadState();
+    status.textContent = `${student.name} 已恢復使用檔名配對圖片。`;
+  } catch (error) {
+    status.textContent = `恢復失敗：${errorMessage(error)}`;
+  }
 }
 function renderFilteredTransactions() {
   const query = ($('#transaction-search')?.value || '').trim().toLocaleLowerCase();
@@ -612,6 +677,14 @@ function setupDialogs() {
   $('#redemption-form').addEventListener('submit', submitRedemption);
   $('#student-form').addEventListener('submit', submitStudent);
   $('#student-edit-form').addEventListener('submit', submitStudentEdit);
+  $('#student-pikmin-art-list').addEventListener('change', event => {
+    const input = event.target.closest('[data-pikmin-art-input]');
+    if (input) uploadStudentPikminArt(input);
+  });
+  $('#student-pikmin-art-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-reset-pikmin-art]');
+    if (button) resetStudentPikminArt(button.dataset.resetPikminArt);
+  });
   $('#product-form').addEventListener('submit', submitProduct);
   $('#product-photo-input').addEventListener('change', event => previewProductPhoto(event.target.files?.[0]));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') $$('dialog[open]').forEach(dialog => dialog.close()); });
@@ -626,20 +699,33 @@ function updateRedemptionPreview() {
   preview.innerHTML = `目前餘額 <strong>${money(balance)}</strong><br>兌換「${escapeHtml(product.name)}」扣款 <strong>−${money(product.price)}</strong><br>兌換後餘額 <strong>${money(after)}</strong>`;
 }
 async function loadState() {
-  const [studentsResult, balancesResult, transactionsResult, productsResult] = await Promise.all([
-    state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
+  await ensurePikminArtManifest();
+  let [studentsResult, balancesResult, transactionsResult, productsResult] = await Promise.all([
+    state.supabase.from('students').select('id,name,seat_number,photo_path,pikmin_photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name'),
     state.supabase.from('account_balances').select('student_id,balance').eq('classroom_id', state.classroomId),
     state.supabase.from('transactions').select('id,student_id,transaction_type,amount,memo,note,created_at,created_by,actor:profiles!transactions_created_by_fkey(display_name)').eq('classroom_id', state.classroomId).order('created_at', { ascending: false }).limit(500),
     state.supabase.from('store_products').select('id,name,product_type,description,price,stock_quantity,is_active,photo_path').eq('classroom_id', state.classroomId).eq('is_active', true).order('created_at', { ascending: false })
   ]);
+  state.pikminArtDbReady = true;
+  if (studentsResult.error && /pikmin_photo_path/i.test(studentsResult.error.message || '')) {
+    state.pikminArtDbReady = false;
+    studentsResult = await state.supabase.from('students').select('id,name,seat_number,photo_path,created_at').eq('classroom_id', state.classroomId).eq('is_active', true).order('seat_number', { ascending: true, nullsFirst: false }).order('name');
+  }
   for (const result of [studentsResult, balancesResult, transactionsResult, productsResult]) if (result.error) throw result.error;
   state.students = studentsResult.data || [];
   state.photoUrls.clear();
+  state.pikminPhotoUrls.clear();
   await Promise.all(state.students.filter(student => student.photo_path).map(async student => {
     try {
       const { data, error } = await state.supabase.storage.from('student-photos').createSignedUrl(student.photo_path, 3600);
       if (!error && data?.signedUrl) state.photoUrls.set(student.id, data.signedUrl);
     } catch { /* Keep the initials avatar if a stored photo cannot be signed. */ }
+  }));
+  await Promise.all(state.students.filter(student => student.pikmin_photo_path).map(async student => {
+    try {
+      const { data, error } = await state.supabase.storage.from('student-photos').createSignedUrl(student.pikmin_photo_path, 3600);
+      if (!error && data?.signedUrl) state.pikminPhotoUrls.set(student.id, data.signedUrl);
+    } catch { /* Fall back to the file-name-matched bundled illustration. */ }
   }));
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
