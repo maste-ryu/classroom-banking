@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261009-mobile-signout">
+  <link rel="stylesheet" href="./styles.css?v=20261013-pikmin-store">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261009-clean-public-note" defer></script>
+  <script src="./app.js?v=20261013-pikmin-store" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -27,6 +27,10 @@
       <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
     </nav>
     <section id="public-balances-view" class="public-content public-balances-view">
+      <section class="public-pikmin-hero" aria-labelledby="public-pikmin-title">
+        <div class="public-pikmin-intro"><div id="public-pikmin-intro-student" class="public-pikmin-inline-profile"><span class="public-pikmin-inline-avatar">學</span><span><strong>學生帳戶</strong><small>成長夥伴</small></span></div><p class="eyebrow">A LITTLE FRIEND FOR EVERY STUDENT</p><h1 id="public-pikmin-title">讓皮克敏陪伴每一次成長</h1><p>皮克敏是學生用薪元購買的虛擬夥伴，也能在班級商店選購。已兌換的皮克敏會陪在學生帳戶旁，一起累積成長回憶。</p><button class="button primary" type="button" data-public-view="store">逛逛皮克敏專區 <span aria-hidden="true">→</span></button></div>
+        <div id="public-pikmin-feature" class="public-pikmin-feature"><div class="pikmin-feature-profile"><span class="public-pikmin-inline-avatar">學</span><span><strong>學生帳戶</strong><small>學生帳戶</small></span></div><div class="pikmin-feature-balance"><div class="public-coin-stack" aria-hidden="true"></div><strong>$0</strong><small>帳戶總餘額</small></div></div>
+      </section>
       <div class="public-heading">
         <div><p class="eyebrow">STUDENT BALANCES</p><h1 id="public-classroom-name">學生餘額總覽</h1></div>
         <button id="public-refresh" class="button primary" type="button">重新整理</button>
@@ -37,6 +41,8 @@
     </section>
     <section id="public-store-view" class="public-content hidden">
       <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與兌換所需薪元。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
+      <div class="store-category-tabs" role="group" aria-label="商店商品類別"><button type="button" class="store-category-tab active" data-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-store-category="pikmin">皮克敏專區</button></div>
+      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>挑選喜歡的虛擬夥伴，請洽教師協助兌換。</p></div></section>
       <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入班級商店…</div></div>
       <p class="public-note">公開頁面僅供瀏覽；請洽教師協助兌換。</p>
     </section>
@@ -128,6 +134,8 @@
 
       <div id="page-store" class="page">
         <section class="page-intro"><div><h2>班級商店</h2><p>由教師為學生操作兌換，扣款與品項備註會留在帳戶流水。</p></div><button class="button primary" data-open="product-dialog">＋ 新增商品</button></section>
+        <div class="store-category-tabs admin-store-tabs" role="group" aria-label="管理商品類別"><button type="button" class="store-category-tab active" data-admin-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-admin-store-category="pikmin">皮克敏專區</button></div>
+        <section id="admin-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>管理可兌換的虛擬皮克敏夥伴。</p></div><button class="button primary" type="button" data-open="product-dialog" data-product-type="pikmin">＋ 新增皮克敏</button></section>
         <div id="products-grid" class="products-grid"></div>
       </div>
 
@@ -149,6 +157,10 @@
           <label class="setting-row">
             <span class="setting-copy"><strong>顯示學生座號</strong><small>控制公開首頁學生姓名旁是否顯示座號。</small></span>
             <span class="setting-switch"><input id="setting-show-seat-numbers" name="show_seat_numbers" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-copy"><strong>公開皮克敏專區</strong><small>開啟後，未登入訪客可在班級商店瀏覽皮克敏商品，並在學生帳戶旁看到已兌換的皮克敏。</small></span>
+            <span class="setting-switch"><input id="setting-show-pikmin" name="public_pikmin_enabled" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
           </label>
           <p id="settings-error" class="form-error" role="alert"></p>
           <div class="settings-actions"><p id="settings-status" class="form-hint" role="status"></p></div>
@@ -224,7 +236,7 @@
       <label>商品照片<input id="product-photo-input" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
       <p class="form-hint">建議尺寸約 900 × 300 px（橫式），讓商品主體置中並填滿畫面。系統會自動裁切白色留白並縮圖。支援 JPG、PNG、WebP，檔案上限 5 MB；可隨時更換照片。</p>
       <label>商品名稱<input name="name" maxlength="100" required></label>
-      <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option></select></label>
+      <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option><option value="pikmin">皮克敏夥伴（虛擬）</option></select></label>
       <label>兌換薪元<input name="price" type="number" min="1" step="1" required></label>
       <label>商品備註<input name="description" maxlength="240" placeholder="選填"></label>
       <label>庫存數量<input name="stock" type="number" min="0" step="1" placeholder="留空代表不限量"></label>

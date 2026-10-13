@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), productPhotoUrls: new Map(), publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -88,6 +88,8 @@ async function loadPublicBalances() {
     if (error) throw error;
     const students = data || [];
     if (students[0]?.system_name) applyBranding(students[0].system_name, students[0].classroom_name);
+    state.publicPikminEnabled = students[0]?.public_pikmin_enabled !== false;
+    $('.public-pikmin-hero')?.classList.toggle('hidden', !state.publicPikminEnabled);
     if (!students.length) {
       $('#public-classroom-name').textContent = '學生餘額總覽';
       $('#public-updated-at').textContent = '';
@@ -102,6 +104,18 @@ async function loadPublicBalances() {
       } catch { return { ...student, photo_url: null }; }
     }));
     const maximumBalance = Math.max(0, ...studentsWithPhotos.map(student => Number(student.balance || 0)));
+    const pikminOwned = studentsWithPhotos.flatMap(student => (student.transaction_details || []).filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin').map(item => ({ ...item, student_name: student.student_name })));
+    const introStudent = studentsWithPhotos[0];
+    const exampleStudent = studentsWithPhotos[1] || introStudent;
+    const profileHtml = student => `<span class="public-pikmin-inline-avatar">${escapeHtml(avatarText(student.student_name))}${student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : ''}</span><span><strong>${escapeHtml(student.student_name)}</strong><small>${student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶'}</small></span>`;
+    if (introStudent) $('#public-pikmin-intro-student').innerHTML = profileHtml(introStudent);
+    const hero = $('#public-pikmin-feature');
+    if (hero && exampleStudent) {
+      const exampleBalance = Number(exampleStudent.balance || 0);
+      const exampleCoins = coinCountFor(exampleBalance, maximumBalance);
+      const examplePikminCount = (exampleStudent.transaction_details || []).filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin').length;
+      hero.innerHTML = `<div class="pikmin-feature-profile">${profileHtml(exampleStudent)}</div><div class="pikmin-feature-balance"><div class="public-coin-stack" style="height:${Math.max(24, 18 + exampleCoins * 11)}px" role="img" aria-label="金幣堆疊 ${exampleCoins} 層">${stackCoins(exampleBalance, maximumBalance)}</div><strong>${money(exampleBalance)}</strong><small>帳戶總餘額</small></div>${state.publicPikminEnabled && examplePikminCount ? `<span class="pikmin-owned-count">🌱 已收藏 ${examplePikminCount} 位皮克敏</span>` : ''}`;
+    }
     $('#public-classroom-name').textContent = students[0].classroom_name || '學生餘額總覽';
     $('#public-updated-at').textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
     list.innerHTML = studentsWithPhotos.map(student => {
@@ -111,6 +125,8 @@ async function loadPublicBalances() {
       const stackHeight = coinCount ? 18 + coinCount * 11 : 0;
       const avatar = student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : '';
       const details = student.transaction_details || [];
+      const ownedPikmin = details.filter(item => item.transaction_type === 'purchase' && item.product_type === 'pikmin');
+      const pikminBadge = state.publicPikminEnabled && ownedPikmin.length ? `<div class="student-pikmin-collection" aria-label="已兌換皮克敏">${ownedPikmin.map(item => `<span title="${escapeHtml(item.product_name || '皮克敏夥伴')}">🌱 <small>${escapeHtml(item.product_name || '皮克敏')}</small></span>`).join('')}</div>` : '';
       const detailRows = details.length
         ? details.map(transaction => {
           const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -120,7 +136,7 @@ async function loadPublicBalances() {
           return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${typeLabel}${note}</small></div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
         }).join('')
         : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
-      return `<div class="public-student-group"><article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small></span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article><section class="public-student-ledger" aria-label="${escapeHtml(student.student_name)}個人明細"><h2>${escapeHtml(student.student_name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
+      return `<div class="public-student-group"><article class="public-student-card"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.student_name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.student_name)}</strong><small>${seat}</small>${pikminBadge}</span></div><div class="public-balance-panel"><div class="public-coin-stack" style="height:${stackHeight}px" role="img" aria-label="金幣堆疊 ${coinCount} 層，依餘額比例顯示">${stackCoins(balance, maximumBalance)}</div><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>帳戶總餘額</small></div></article><section class="public-student-ledger" aria-label="${escapeHtml(student.student_name)}個人明細"><h2>${escapeHtml(student.student_name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
     }).join('');
   } catch (error) {
     $('#public-classroom-name').textContent = '學生餘額總覽';
@@ -153,6 +169,9 @@ async function loadPublicStore() {
     const products = data || [];
     state.publicStore = products;
     if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
+    state.publicPikminEnabled = products[0]?.public_pikmin_enabled !== false;
+    $('[data-store-category="pikmin"]')?.classList.toggle('hidden', !state.publicPikminEnabled);
+    $('#public-pikmin-store-heading')?.classList.toggle('hidden', !state.publicPikminEnabled || state.publicStoreCategory !== 'pikmin');
     $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
     if (!products.length) {
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
@@ -166,12 +185,14 @@ async function loadPublicStore() {
         return { ...product, photo_url: signedPhoto.signedUrl };
       } catch { return { ...product, photo_url: null }; }
     }));
-    list.innerHTML = productsWithPhotos.map((product, index) => {
+    state.publicStore = productsWithPhotos;
+    const visibleProducts = productsWithPhotos.filter(product => state.publicStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : state.publicStoreCategory === 'all' ? state.publicPikminEnabled || product.product_type !== 'pikmin' : true);
+    list.innerHTML = visibleProducts.map((product, index) => {
       const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
-      const type = product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
+      const type = product.product_type === 'pikmin' ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
       const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
       return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
-    }).join('');
+    }).join('') || `<div class="empty-state panel">${state.publicStoreCategory === 'pikmin' ? '皮克敏專區目前沒有上架商品。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
   } catch (error) {
     list.innerHTML = `<div class="empty-state panel">讀取班級商店失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
   } finally {
@@ -316,11 +337,34 @@ function renderProducts() {
     target.innerHTML = '<div class="empty-state panel">商店目前沒有商品，教師可以新增第一項獎勵。</div>';
     return;
   }
-  target.innerHTML = state.products.filter(product => product.is_active).map((product, index) => {
+  const activeProducts = state.products.filter(product => product.is_active);
+  const visibleProducts = activeProducts.filter(product => state.adminStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : state.adminStoreCategory === 'all' ? true : product.product_type !== 'pikmin');
+  $('#admin-pikmin-store-heading')?.classList.toggle('hidden', state.adminStoreCategory !== 'pikmin');
+  target.innerHTML = visibleProducts.map((product, index) => {
     const photoUrl = state.productPhotoUrls.get(product.id);
     const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
     return `<article class="product-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><div class="product-card-actions"><button class="button secondary" data-edit-product="${escapeHtml(product.id)}">編輯商品</button><button class="button primary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div></article>`;
-  }).join('') || '<div class="empty-state panel">目前沒有啟用中的商品。</div>';
+  }).join('') || `<div class="empty-state panel">${state.adminStoreCategory === 'pikmin' ? '目前沒有啟用中的皮克敏，可新增皮克敏夥伴商品。' : '目前沒有啟用中的商品。'}</div>`;
+}
+function setPublicStoreCategory(category) {
+  state.publicStoreCategory = category;
+  $$('[data-store-category]').forEach(button => button.classList.toggle('active', button.dataset.storeCategory === category));
+  $('#public-pikmin-store-heading')?.classList.toggle('hidden', category !== 'pikmin' || !state.publicPikminEnabled);
+  if (state.publicStore.length) {
+    const products = state.publicStore.filter(product => category === 'pikmin' ? product.product_type === 'pikmin' : category === 'all' ? state.publicPikminEnabled || product.product_type !== 'pikmin' : true);
+    const grid = $('#public-store-products');
+    grid.innerHTML = products.map((product, index) => {
+      const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
+      const type = product.product_type === 'pikmin' ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
+      const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
+      return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
+    }).join('') || `<div class="empty-state panel">${category === 'pikmin' ? '皮克敏專區目前沒有上架商品。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
+  }
+}
+function setAdminStoreCategory(category) {
+  state.adminStoreCategory = category;
+  $$('[data-admin-store-category]').forEach(button => button.classList.toggle('active', button.dataset.adminStoreCategory === category));
+  renderProducts();
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
@@ -334,6 +378,8 @@ function openDialog(id) {
     const form = $('#product-form');
     form.reset();
     form.elements.product_id.value = '';
+    form.elements.product_type.value = $('#product-dialog').dataset.nextProductType || 'physical';
+    delete $('#product-dialog').dataset.nextProductType;
     $('#product-dialog-eyebrow').textContent = 'NEW REWARD';
     $('#product-dialog-title').textContent = '新增商店商品';
     $('#product-submit-button').textContent = '新增商品';
@@ -515,7 +561,10 @@ async function submitStudentEdit(event) {
   }
 }
 function setupDialogs() {
-  $$('[data-open]').forEach(button => button.addEventListener('click', () => openDialog(button.dataset.open)));
+  $$('[data-open]').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.productType) $('#product-dialog').dataset.nextProductType = button.dataset.productType;
+    openDialog(button.dataset.open);
+  }));
   $$('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
@@ -713,16 +762,19 @@ async function submitSettings(event) {
   try {
     const settings = {
       public_show_student_avatars: $('#setting-show-avatars').checked,
-      public_show_seat_numbers: $('#setting-show-seat-numbers').checked
+      public_show_seat_numbers: $('#setting-show-seat-numbers').checked,
+      public_pikmin_enabled: $('#setting-show-pikmin').checked
     };
     const { error } = await state.supabase.from('classrooms').update(settings).eq('id', state.classroomId).select('id').single();
     if (error) throw error;
-    state.settings = { showStudentAvatars: settings.public_show_student_avatars, showSeatNumbers: settings.public_show_seat_numbers };
+    state.settings = { ...state.settings, showStudentAvatars: settings.public_show_student_avatars, showSeatNumbers: settings.public_show_seat_numbers, showPikmin: settings.public_pikmin_enabled };
+    state.publicPikminEnabled = settings.public_pikmin_enabled;
     statusNode.textContent = '設定已自動儲存；公開首頁重新整理後會套用。';
     toast('基本設定已儲存');
   } catch (error) {
     $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
     $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
+    $('#setting-show-pikmin').checked = state.settings.showPikmin;
     inputs.forEach(input => {
       $('.switch-state', input.parentElement).textContent = input.checked ? '開啟' : '關閉';
     });
@@ -772,7 +824,7 @@ async function enterApp(user) {
     return;
   }
   state.profile = profile;
-  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,system_name,public_show_student_avatars,public_show_seat_numbers,transaction_memo_options)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
+  const { data: memberships, error } = await state.supabase.from('classroom_members').select('classroom_id,classrooms(name,system_name,public_show_student_avatars,public_show_seat_numbers,public_pikmin_enabled,transaction_memo_options)').eq('user_id', user.id).eq('role', 'teacher').limit(1);
   if (error || !memberships?.length) {
     await state.supabase.auth.signOut();
     show('login-screen');
@@ -781,12 +833,13 @@ async function enterApp(user) {
   }
   state.classroomId = memberships[0].classroom_id;
   const classroomSettings = memberships[0].classrooms || {};
-  state.settings = { systemName: classroomSettings.system_name || '班級薪資銀行', classroomName: classroomSettings.name || '', showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false, transactionMemoOptions: Array.isArray(classroomSettings.transaction_memo_options) && classroomSettings.transaction_memo_options.length ? classroomSettings.transaction_memo_options : ['完成作業', '協助班級工作'] };
+  state.settings = { systemName: classroomSettings.system_name || '班級薪資銀行', classroomName: classroomSettings.name || '', showStudentAvatars: classroomSettings.public_show_student_avatars === true, showSeatNumbers: classroomSettings.public_show_seat_numbers !== false, showPikmin: classroomSettings.public_pikmin_enabled !== false, transactionMemoOptions: Array.isArray(classroomSettings.transaction_memo_options) && classroomSettings.transaction_memo_options.length ? classroomSettings.transaction_memo_options : ['完成作業', '協助班級工作'] };
   $('#setting-system-name').value = state.settings.systemName;
   $('#setting-classroom-name').value = state.settings.classroomName;
   applyBranding(state.settings.systemName, state.settings.classroomName);
   $('#setting-show-avatars').checked = state.settings.showStudentAvatars;
   $('#setting-show-seat-numbers').checked = state.settings.showSeatNumbers;
+  $('#setting-show-pikmin').checked = state.settings.showPikmin;
   $$('.setting-switch').forEach(node => {
     const input = $('input', node);
     $('.switch-state', node).textContent = input.checked ? '開啟' : '關閉';
@@ -806,7 +859,9 @@ async function initialize() {
   $('#public-home-link').addEventListener('click', showPublicHome);
   $('#public-refresh').addEventListener('click', loadPublicBalances);
   $('#public-store-refresh').addEventListener('click', loadPublicStore);
-  $$('.public-view-tab').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
+  $$('[data-public-view]').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
+  $$('[data-store-category]').forEach(button => button.addEventListener('click', () => setPublicStoreCategory(button.dataset.storeCategory)));
+  $$('[data-admin-store-category]').forEach(button => button.addEventListener('click', () => setAdminStoreCategory(button.dataset.adminStoreCategory)));
   $('#settings-form').addEventListener('submit', submitSettings);
   $('#basic-info-form').addEventListener('submit', submitBasicInfo);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
