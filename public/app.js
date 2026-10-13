@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewPikminCounts: new Map(), overviewDetails: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -132,11 +132,9 @@ async function loadPublicBalances() {
       const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
       const avatar = student.photo_url ? `<img src="${escapeHtml(student.photo_url)}" alt="">` : '';
       const details = student.transaction_details || [];
-      const ownedPikmin = student.pikmin_collection || [];
       const pikminArtUrl = state.publicPikminEnabled ? pikminPhotoUrls.get(student.student_pikmin_photo_path) || (student.student_pikmin_photo_path ? null : bundledPikminArtUrl(student.student_name)) : null;
-      const pikminCount = ownedPikmin.length;
       const pikminPanel = state.publicPikminEnabled
-        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy">${pikminCount ? `<b aria-label="已收藏 ${pikminCount} 隻">×${pikminCount}</b>` : ''}</div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
         : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
       const detailRows = details.length
         ? details.map(transaction => {
@@ -266,9 +264,8 @@ function overviewStudentCard(student) {
   const avatar = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(student.name)}照片">` : '';
   const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
   const pikminUrl = state.pikminPhotoUrls.get(student.id) || (student.pikmin_photo_path ? null : bundledPikminArtUrl(student.name));
-  const pikminCount = state.overviewPikminCounts.get(student.id) || 0;
   const pikminPanel = state.settings.showPikmin
-    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy">${pikminCount ? `<b aria-label="已收藏 ${pikminCount} 隻">×${pikminCount}</b>` : ''}</div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
     : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
   const details = state.overviewDetails.get(student.id) || state.transactions.filter(transaction => transaction.student_id === student.id);
   const detailRows = details.length
@@ -750,7 +747,6 @@ async function loadState() {
   }));
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
-  state.overviewPikminCounts.clear();
   state.overviewDetails.clear();
   if (state.settings.showPikmin) {
     try {
@@ -763,7 +759,6 @@ async function loadState() {
             && (publicStudent.seat_number == null || candidate.seat_number === publicStudent.seat_number));
           if (!student) continue;
           matchedStudents.add(student.id);
-          state.overviewPikminCounts.set(student.id, Array.isArray(publicStudent.pikmin_collection) ? publicStudent.pikmin_collection.length : 0);
           if (Array.isArray(publicStudent.transaction_details)) state.overviewDetails.set(student.id, publicStudent.transaction_details);
         }
       }
