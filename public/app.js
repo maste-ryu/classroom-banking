@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewPikminCounts: new Map(), overviewDetails: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -266,10 +266,21 @@ function overviewStudentCard(student) {
   const avatar = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(student.name)}照片">` : '';
   const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
   const pikminUrl = state.pikminPhotoUrls.get(student.id) || (student.pikmin_photo_path ? null : bundledPikminArtUrl(student.name));
+  const pikminCount = state.overviewPikminCounts.get(student.id) || 0;
   const pikminPanel = state.settings.showPikmin
-    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy">${pikminCount ? `<b aria-label="已收藏 ${pikminCount} 隻">×${pikminCount}</b>` : ''}</div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
     : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
-  return `<article class="public-student-card admin-overview-student-card"><div class="public-student-main"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.name)}</strong><small>${seat}</small></span></div><div class="public-balance-value"><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>${balance < 0 ? '負債狀態' : '帳戶總餘額'}</small></div></div>${pikminPanel}</article>`;
+  const details = state.overviewDetails.get(student.id) || state.transactions.filter(transaction => transaction.student_id === student.id);
+  const detailRows = details.length
+    ? details.map(transaction => {
+      const date = new Date(transaction.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+      const amount = Number(transaction.amount || 0);
+      const typeLabel = transaction.transaction_type === 'reward' ? '入帳' : transactionLabels[transaction.transaction_type] || '交易';
+      const note = transaction.note ? ` · ${escapeHtml(transaction.note)}` : '';
+      return `<article class="public-ledger-row"><div><strong>${escapeHtml(transaction.memo || '未填寫項目')}</strong><small>${date} · ${typeLabel}${note}</small></div><b class="${amount < 0 ? 'negative' : 'positive'}">${amount > 0 ? '+' : ''}${money(amount)}</b></article>`;
+    }).join('')
+    : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
+  return `<div class="public-student-group admin-overview-student-group"><article class="public-student-card admin-overview-student-card"><div class="public-student-main"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.name)}</strong><small>${seat}</small></span></div><div class="public-balance-value"><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>${balance < 0 ? '負債狀態' : '帳戶總餘額'}</small></div></div>${pikminPanel}</article><section class="public-student-ledger" aria-label="${escapeHtml(student.name)}個人明細"><h2>${escapeHtml(student.name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -739,6 +750,25 @@ async function loadState() {
   }));
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
+  state.overviewPikminCounts.clear();
+  state.overviewDetails.clear();
+  if (state.settings.showPikmin) {
+    try {
+      const { data: publicBalances, error: publicBalancesError } = await state.supabase.rpc('public_classroom_balances');
+      if (!publicBalancesError) {
+        const matchedStudents = new Set();
+        for (const publicStudent of publicBalances || []) {
+          const student = state.students.find(candidate => !matchedStudents.has(candidate.id)
+            && candidate.name === publicStudent.student_name
+            && (publicStudent.seat_number == null || candidate.seat_number === publicStudent.seat_number));
+          if (!student) continue;
+          matchedStudents.add(student.id);
+          state.overviewPikminCounts.set(student.id, Array.isArray(publicStudent.pikmin_collection) ? publicStudent.pikmin_collection.length : 0);
+          if (Array.isArray(publicStudent.transaction_details)) state.overviewDetails.set(student.id, publicStudent.transaction_details);
+        }
+      }
+    } catch { /* Collection counts are supplemental; account balances remain available. */ }
+  }
   state.products = productsResult.data || [];
   clearObjectUrls(state.productPhotoUrls);
   await Promise.all(state.products.filter(product => product.photo_path).map(async product => {
