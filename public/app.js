@@ -210,7 +210,7 @@ function renderPublicStoreProducts() {
     const type = isPikmin ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
     const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
     const details = isPikmin
-      ? '<div class="public-product-bottom"><small>每累積 500 分，由老師手動新增</small></div>'
+      ? ''
       : `<div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`}</small></div>`;
     return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || (isPikmin ? '皮克敏夥伴' : '班級商店獎勵'))}</p>${details}</div></article>`;
     }).join('') || `<div class="empty-state panel">${isPikmin ? '目前沒有展示中的皮克敏。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
