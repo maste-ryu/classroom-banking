@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261014-classroom-store-v2" defer></script>
+  <script src="./app.js?v=20261014-independent-pikmin-v1" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -25,7 +25,7 @@
     <nav class="public-view-tabs" aria-label="公開首頁內容">
       <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
       <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
-      <button id="public-pikmin-store-tab" type="button" class="public-store-cta">皮克敏展示 <span aria-hidden="true">→</span></button>
+      <button id="public-pikmin-store-tab" type="button" class="public-view-tab" data-public-view="pikmin">皮克敏展示</button>
     </nav>
     <section id="public-balances-view" class="public-content public-balances-view">
       <div class="public-heading">
@@ -38,10 +38,13 @@
     </section>
     <section id="public-store-view" class="public-content hidden">
       <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與商品。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
-      <div class="store-category-tabs" role="group" aria-label="商店商品類別"><button type="button" class="store-category-tab active" data-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-store-category="pikmin">皮克敏專區</button></div>
-      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>每累積 500 分，由老師手動新增一隻。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
-      <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入皮克敏展示…</div></div>
-      <p class="public-note">皮克敏不需兌換或扣款；每累積 500 分由老師手動新增。其他商店品項請洽教師辦理。</p>
+      <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入班級商店…</div></div>
+      <p class="public-note">公開頁面僅供瀏覽；商品兌換請洽教師辦理。</p>
+    </section>
+    <section id="public-pikmin-view" class="public-content hidden">
+      <div class="public-heading"><div><p class="eyebrow">PIKMIN GALLERY</p><h1>皮克敏展示</h1><p>學生每累積 500 分，由老師手動新增一隻，不需兌換或扣款。</p></div><button id="public-pikmin-refresh" class="button primary" type="button">重新整理</button></div>
+      <section class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>由老師管理展示種類並手動新增。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+      <div id="public-pikmin-products" class="public-products-grid"><div class="empty-state panel">正在載入皮克敏展示…</div></div>
     </section>
   </main>
 
@@ -83,11 +86,13 @@
         <button class="nav-item" data-page="transactions"><span class="nav-icon">↕</span>交易流水</button>
         <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
         <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
+        <button class="nav-item" data-page="pikmin"><span class="nav-icon">🌱</span>皮克敏展示管理</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>基本設定</button>
       </nav>
       <div class="side-label quick-nav-label">管理區</div>
       <nav class="quick-nav" aria-label="快速操作">
         <button class="quick-nav-item" data-open="transaction-dialog"><span class="nav-icon">↗</span>薪資入帳</button>
+        <button class="quick-nav-item" data-open="redemption-dialog"><span class="nav-icon">↙</span>商品兌換</button>
         <button class="quick-nav-item" data-open="pikmin-dialog"><span class="nav-icon">🌱</span>新增皮克敏</button>
       </nav>
       <div class="sidebar-bottom">
@@ -130,10 +135,14 @@
       </div>
 
       <div id="page-store" class="page">
-        <section class="page-intro"><div><h2>班級商店</h2><p>管理班級商店展示；皮克敏由老師手動新增，每累積 500 分贈予學生。</p></div><button class="button primary" type="button" data-open="pikmin-product-dialog">＋ 新增展示皮克敏</button></section>
-        <div class="store-category-tabs admin-store-tabs" role="group" aria-label="管理商品類別"><button type="button" class="store-category-tab active" data-admin-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-admin-store-category="pikmin">皮克敏展示</button></div>
-        <section id="admin-pikmin-store-heading" class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>每累積 500 分，由老師手動新增，不需扣款或兌換。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+        <section class="page-intro"><div><h2>班級商店</h2><p>教師可為學生操作一般商品兌換，扣款與商品項目會記錄在交易流水。</p></div></section>
         <div id="products-grid" class="products-grid"></div>
+      </div>
+
+      <div id="page-pikmin" class="page">
+        <section class="page-intro"><div><h2>皮克敏展示管理</h2><p>皮克敏獨立於班級商店；學生每累積 500 分，由老師手動新增一隻，不需兌換或扣款。</p></div><button class="button primary" type="button" data-open="pikmin-product-dialog">＋ 新增展示皮克敏</button></section>
+        <section class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>管理可供老師手動新增的皮克敏種類。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+        <div id="pikmin-products-grid" class="products-grid"></div>
       </div>
 
       <div id="page-settings" class="page">
@@ -191,6 +200,18 @@
       <p class="form-hint">扣薪會自動以負數記錄。送出後將新增一筆交易，無重複入帳阻擋。</p>
       <p class="dialog-error" role="alert"></p>
       <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認入帳</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="redemption-dialog" class="modal">
+    <form id="redemption-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">STORE WITHDRAWAL</p><h2>商品兌換</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <label>學生<select name="student_id" required></select></label>
+      <label>兌換商品<select name="product_id" required></select></label>
+      <div id="redemption-preview" class="redemption-preview">選擇學生與商品後顯示扣款預覽</div>
+      <label>交易備註<input name="memo" maxlength="240" placeholder="可補充兌換說明"></label>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認扣款與兌換</button></div>
     </form>
   </dialog>
 

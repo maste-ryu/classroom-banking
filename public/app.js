@@ -1,8 +1,8 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), studentCollections: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, publicStoreCategory: 'all', adminStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
-const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), studentCollections: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], pikmin: ['PIKMIN GALLERY', '皮克敏展示管理'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
 const money = n => `$${fmt(n)}`;
@@ -155,16 +155,17 @@ async function loadPublicBalances() {
   }
 }
 function setPublicView(view) {
-  const storeSelected = view === 'store';
-  $('#public-balances-view')?.classList.toggle('hidden', storeSelected);
-  $('#public-store-view')?.classList.toggle('hidden', !storeSelected);
+  const validView = ['balances', 'store', 'pikmin'].includes(view) ? view : 'balances';
+  $('#public-balances-view')?.classList.toggle('hidden', validView !== 'balances');
+  $('#public-store-view')?.classList.toggle('hidden', validView !== 'store');
+  $('#public-pikmin-view')?.classList.toggle('hidden', validView !== 'pikmin');
   $$('.public-view-tab').forEach(button => {
-    const active = button.dataset.publicView === view;
+    const active = button.dataset.publicView === validView;
     button.classList.toggle('active', active);
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  if (storeSelected) loadPublicStore();
+  if (validView !== 'balances') loadPublicStore();
 }
 async function loadPublicStore() {
   const list = $('#public-store-products');
@@ -180,10 +181,10 @@ async function loadPublicStore() {
     if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
     if (products[0]) state.publicPikminEnabled = products[0].public_pikmin_enabled !== false;
     $('#public-pikmin-store-tab')?.classList.toggle('hidden', !state.publicPikminEnabled);
-    $('[data-store-category="pikmin"]')?.classList.toggle('hidden', !state.publicPikminEnabled);
     $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
     if (!products.length) {
-      list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
+      state.publicStore = [];
+      renderPublicStoreProducts();
       return;
     }
     const productsWithPhotos = await Promise.all(products.map(async product => {
@@ -203,23 +204,19 @@ async function loadPublicStore() {
   }
 }
 function renderPublicStoreProducts() {
-  const list = $('#public-store-products');
-  const products = state.publicStore.filter(product => state.publicStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : state.publicStoreCategory === 'all' ? state.publicPikminEnabled || product.product_type !== 'pikmin' : true);
-  $('#public-pikmin-store-heading')?.classList.toggle('hidden', state.publicStoreCategory !== 'pikmin' || !state.publicPikminEnabled);
-  $$('[data-store-category]').forEach(button => button.classList.toggle('active', button.dataset.storeCategory === state.publicStoreCategory));
-  list.innerHTML = products.map((product, index) => {
-    const pikmin = product.product_type === 'pikmin';
-    const type = pikmin ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
+  const renderCards = (products, target, isPikmin) => {
+    if (!target) return;
+    target.innerHTML = products.map((product, index) => {
+    const type = isPikmin ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
     const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
-    const details = pikmin
+    const details = isPikmin
       ? '<div class="public-product-bottom"><small>每累積 500 分，由老師手動新增</small></div>'
       : `<div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`}</small></div>`;
-    return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || (pikmin ? '皮克敏夥伴' : '班級商店獎勵'))}</p>${details}</div></article>`;
-  }).join('') || `<div class="empty-state panel">${state.publicStoreCategory === 'pikmin' ? '皮克敏專區目前沒有展示品項。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
-}
-function setPublicStoreCategory(category) {
-  state.publicStoreCategory = category;
-  renderPublicStoreProducts();
+    return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || (isPikmin ? '皮克敏夥伴' : '班級商店獎勵'))}</p>${details}</div></article>`;
+    }).join('') || `<div class="empty-state panel">${isPikmin ? '目前沒有展示中的皮克敏。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
+  };
+  renderCards(state.publicStore.filter(product => product.product_type !== 'pikmin'), $('#public-store-products'), false);
+  renderCards(state.publicStore.filter(product => product.product_type === 'pikmin'), $('#public-pikmin-products'), true);
 }
 function toast(message) {
   const node = $('#toast');
@@ -357,6 +354,7 @@ function render() {
   renderLedger($('#recent-transactions'), state.transactions.slice(0, 6));
   renderFilteredTransactions();
   renderProducts();
+  renderPikminProducts();
   fillStudentSelects();
   renderStudentPikminArt();
 }
@@ -437,23 +435,40 @@ function renderFilteredTransactions() {
 function fillStudentSelects() {
   const options = state.students.map(student => `<option value="${escapeHtml(student.id)}">${escapeHtml(student.name)}${student.seat_number ? `（${escapeHtml(student.seat_number)}）` : ''}</option>`).join('');
   $$('select[name="student_id"]').forEach(select => { select.innerHTML = options || '<option value="">請先新增學生</option>'; });
+  const products = state.products.filter(product => product.product_type !== 'pikmin' && product.is_active).map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}　${money(product.price)}</option>`).join('');
+  $('#redemption-form select[name="product_id"]').innerHTML = products || '<option value="">目前沒有可兌換商品</option>';
   const pikmin = state.products.filter(product => product.product_type === 'pikmin' && product.is_active).map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join('');
   $('#pikmin-form select[name="product_id"]').innerHTML = pikmin || '<option value="">尚無可新增的皮克敏</option>';
 }
 function renderProducts() {
   const target = $('#products-grid');
-  const activeProducts = state.products.filter(product => product.is_active);
-  const visibleProducts = activeProducts.filter(product => state.adminStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : true);
-  $('#admin-pikmin-store-heading')?.classList.toggle('hidden', state.adminStoreCategory !== 'pikmin');
-  $$('[data-admin-store-category]').forEach(button => button.classList.toggle('active', button.dataset.adminStoreCategory === state.adminStoreCategory));
+  const visibleProducts = state.products.filter(product => product.is_active && product.product_type !== 'pikmin');
   target.innerHTML = visibleProducts.map((product, index) => {
     const photoUrl = state.productPhotoUrls.get(product.id);
     const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
-    const pikmin = product.product_type === 'pikmin';
-    const details = pikmin ? '' : `<div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div>`;
-    const actions = pikmin ? `<div class="product-card-actions"><button class="button secondary" type="button" data-edit-pikmin="${escapeHtml(product.id)}">編輯</button><button class="button danger" type="button" data-delete-pikmin="${escapeHtml(product.id)}">刪除</button></div>` : '';
-    return `<article class="product-card${pikmin ? ' pikmin-display-card' : ''}"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || (pikmin ? '皮克敏夥伴' : '班級商店獎勵'))}</p>${details}${actions}</article>`;
-  }).join('') || `<div class="empty-state panel">${state.adminStoreCategory === 'pikmin' ? '目前沒有展示中的皮克敏。' : '班級商店目前沒有商品。'}</div>`;
+    const details = `<div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div>`;
+    const actions = `<div class="product-card-actions"><button class="button primary" type="button" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div>`;
+    return `<article class="product-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p>${details}${actions}</article>`;
+  }).join('') || '<div class="empty-state panel">班級商店目前沒有可兌換商品。</div>';
+}
+function renderPikminProducts() {
+  const target = $('#pikmin-products-grid');
+  if (!target) return;
+  const visibleProducts = state.products.filter(product => product.is_active && product.product_type === 'pikmin');
+  target.innerHTML = visibleProducts.map((product, index) => {
+    const photoUrl = state.productPhotoUrls.get(product.id);
+    const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
+    return `<article class="product-card pikmin-display-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '皮克敏夥伴')}</p><div class="product-card-actions"><button class="button secondary" type="button" data-edit-pikmin="${escapeHtml(product.id)}">編輯</button><button class="button danger" type="button" data-delete-pikmin="${escapeHtml(product.id)}">刪除</button></div></article>`;
+  }).join('') || '<div class="empty-state panel">目前沒有展示中的皮克敏。</div>';
+}
+function updateRedemptionPreview() {
+  const student = getStudent($('#redemption-form [name="student_id"]').value);
+  const product = state.products.find(item => item.id === $('#redemption-form [name="product_id"]').value && item.product_type !== 'pikmin');
+  const preview = $('#redemption-preview');
+  if (!student || !product) { preview.textContent = '選擇學生與商品後顯示扣款預覽'; return; }
+  const balance = currentBalance(student.id);
+  const after = balance - Number(product.price);
+  preview.innerHTML = `目前餘額 <strong>${money(balance)}</strong><br>兌換「${escapeHtml(product.name)}」扣款 <strong>−${money(product.price)}</strong><br>兌換後餘額 <strong>${money(after)}</strong>`;
 }
 function openPikminEditor(productId) {
   const product = state.products.find(item => item.id === productId && item.product_type === 'pikmin');
@@ -472,12 +487,17 @@ function openPikminEditor(productId) {
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
-  if (!state.students.length && ['transaction-dialog', 'pikmin-dialog'].includes(id)) {
+  if (!state.students.length && ['transaction-dialog', 'pikmin-dialog', 'redemption-dialog'].includes(id)) {
     toast('請先建立學生帳戶。');
-    $('#student-dialog').showModal();
+    if (id === 'redemption-dialog') setPage('students');
+    else $('#student-dialog').showModal();
     return;
   }
   if (id === 'pikmin-dialog') $('#pikmin-form').reset();
+  if (id === 'redemption-dialog') {
+    $('#redemption-form').reset();
+    updateRedemptionPreview();
+  }
   if (id === 'pikmin-product-dialog') {
     const form = $('#pikmin-product-form');
     form.reset();
@@ -644,12 +664,14 @@ function setupDialogs() {
   $$('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
-  $$('[data-admin-store-category]').forEach(button => button.addEventListener('click', () => {
-    state.adminStoreCategory = button.dataset.adminStoreCategory;
-    renderProducts();
-  }));
-  $$('[data-store-category]').forEach(button => button.addEventListener('click', () => setPublicStoreCategory(button.dataset.storeCategory)));
   document.addEventListener('click', event => {
+    const redeem = event.target.closest('[data-redeem]');
+    if (redeem) {
+      openDialog('redemption-dialog');
+      $('#redemption-form [name="product_id"]').value = redeem.dataset.redeem;
+      updateRedemptionPreview();
+      return;
+    }
     const saveTransaction = event.target.closest('[data-save-transaction]');
     if (saveTransaction) { saveTransactionEdit(saveTransaction); return; }
     const deleteTransactionButton = event.target.closest('[data-delete-transaction]');
@@ -665,6 +687,9 @@ function setupDialogs() {
   $('#type-filter').addEventListener('change', renderFilteredTransactions);
   $('#signout-button').addEventListener('click', () => state.supabase.auth.signOut());
   $('#transaction-form').addEventListener('submit', submitTransaction);
+  $('#redemption-form').addEventListener('submit', submitRedemption);
+  $('#redemption-form [name="student_id"]').addEventListener('change', updateRedemptionPreview);
+  $('#redemption-form [name="product_id"]').addEventListener('change', updateRedemptionPreview);
   $('#add-memo-option').addEventListener('click', addTransactionMemoOption);
   $('#new-memo-option').addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); addTransactionMemoOption(); }
@@ -763,6 +788,18 @@ async function submitTransaction(event) {
   if (result.error) { showError(error, errorMessage(result.error)); return; }
   form.closest('dialog').close(); form.reset();
   await refreshAfterMutation('交易已入帳');
+}
+async function submitRedemption(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const error = $('.dialog-error', form);
+  const product = state.products.find(item => item.id === values.get('product_id'));
+  if (!product || product.product_type === 'pikmin') { showError(error, '皮克敏不提供兌換，請使用「新增皮克敏」操作。'); return; }
+  const result = await state.supabase.rpc('redeem_product', { p_classroom_id: state.classroomId, p_student_id: values.get('student_id'), p_product_id: values.get('product_id'), p_memo: String(values.get('memo') || '').trim() || null });
+  if (result.error) { showError(error, errorMessage(result.error)); return; }
+  form.closest('dialog').close(); form.reset();
+  await refreshAfterMutation('兌換完成，扣款與品項已記錄');
 }
 async function submitPikmin(event) {
   event.preventDefault();
@@ -968,11 +1005,8 @@ async function initialize() {
   $('#public-home-link').addEventListener('click', showPublicHome);
   $('#public-refresh').addEventListener('click', loadPublicBalances);
   $('#public-store-refresh').addEventListener('click', loadPublicStore);
+  $('#public-pikmin-refresh').addEventListener('click', loadPublicStore);
   $$('[data-public-view]').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
-  $('#public-pikmin-store-tab')?.addEventListener('click', () => {
-    setPublicStoreCategory('pikmin');
-    setPublicView('store');
-  });
   $('#settings-form').addEventListener('submit', submitSettings);
   $('#basic-info-form').addEventListener('submit', submitBasicInfo);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {
