@@ -1,7 +1,7 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), studentCollections: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
 const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], pikmin: ['PIKMIN GALLERY', '皮克敏展示管理'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
@@ -134,7 +134,7 @@ async function loadPublicBalances() {
       const details = student.transaction_details || [];
       const pikminArtUrl = state.publicPikminEnabled ? pikminPhotoUrls.get(student.student_pikmin_photo_path) || (student.student_pikmin_photo_path ? null : bundledPikminArtUrl(student.student_name)) : null;
       const pikminPanel = state.publicPikminEnabled
-        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}${renderPikminCollection(student.pikmin_collection)}</div>`
+        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
         : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
       const detailRows = details.length
         ? details.map(transaction => {
@@ -274,7 +274,7 @@ function overviewStudentCard(student) {
   const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
   const pikminUrl = state.pikminPhotoUrls.get(student.id) || (student.pikmin_photo_path ? null : bundledPikminArtUrl(student.name));
   const pikminPanel = state.settings.showPikmin
-    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}${renderPikminCollection(state.studentCollections.get(student.id))}</div>`
+    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
     : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
   const details = state.overviewDetails.get(student.id) || state.transactions.filter(transaction => transaction.student_id === student.id);
   const detailRows = details.length
@@ -287,10 +287,6 @@ function overviewStudentCard(student) {
     }).join('')
     : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
   return `<div class="public-student-group admin-overview-student-group"><article class="public-student-card admin-overview-student-card"><div class="public-student-main"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.name)}</strong><small>${seat}</small></span></div><div class="public-balance-value"><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>${balance < 0 ? '負債狀態' : '帳戶總餘額'}</small></div></div>${pikminPanel}</article><section class="public-student-ledger" aria-label="${escapeHtml(student.name)}個人明細"><h2>${escapeHtml(student.name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
-}
-function renderPikminCollection(collection = []) {
-  if (!collection?.length) return '';
-  return `<div class="student-pikmin-collection" aria-label="已獲得 ${collection.length} 隻皮克敏">${collection.map(item => `<span>🌱 ${escapeHtml(item.product_name)}</span>`).join('')}</div>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -745,7 +741,6 @@ async function loadState() {
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.overviewDetails.clear();
-  state.studentCollections.clear();
   if (state.settings.showPikmin) {
     try {
       const { data: publicBalances, error: publicBalancesError } = await state.supabase.rpc('public_classroom_balances');
@@ -758,7 +753,6 @@ async function loadState() {
           if (!student) continue;
           matchedStudents.add(student.id);
           if (Array.isArray(publicStudent.transaction_details)) state.overviewDetails.set(student.id, publicStudent.transaction_details);
-          if (Array.isArray(publicStudent.pikmin_collection)) state.studentCollections.set(student.id, publicStudent.pikmin_collection);
         }
       }
     } catch { /* Collection counts are supplemental; account balances remain available. */ }
