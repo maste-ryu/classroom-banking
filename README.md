@@ -5,9 +5,9 @@
 ## 核心規則
 
 - 餘額只看帳戶總額，由交易流水計算；教師可以直接更正項目、備註與金額，或刪除錯誤交易；不做月結或月餘額重置。
-- 教師可管理學生、入帳、扣款和商品兌換；學生權限為唯讀。
-- 未登入首頁公開顯示啟用公開的班級名稱、學生姓名、目前餘額與交易明細，並可切換瀏覽班級商店；座號與頭像可由教師在「基本設定」控制。
-- 商品兌換建立負數 purchase 交易，交易備註保存兌換物名稱。
+- 教師可管理學生、入帳與扣款；皮克敏每累積 500 分由教師手動新增，學生權限為唯讀。
+- 未登入首頁公開顯示啟用公開的班級名稱、學生姓名、目前餘額、交易明細及皮克敏展示；座號與頭像可由教師在「基本設定」控制。
+- 皮克敏新增只記錄收藏與操作教師，不會建立扣款交易；歷史商品兌換資料仍保留。
 - 交易由資料庫保存操作者及時間；Supabase RLS 在資料庫層限制存取。
 - 餘額數字是正式帳務值，金幣堆疊圖只負責視覺呈現。
 
@@ -17,10 +17,11 @@
 
 1. 在 Supabase 建立專案。
 2. 於 SQL Editor 依序執行 [`supabase/migrations/202610060001_initial_schema.sql`](supabase/migrations/202610060001_initial_schema.sql)、[`supabase/migrations/202610060002_public_balances.sql`](supabase/migrations/202610060002_public_balances.sql)、[`supabase/migrations/202610060003_classroom_settings_and_public_avatars.sql`](supabase/migrations/202610060003_classroom_settings_and_public_avatars.sql)、[`supabase/migrations/202610060004_transaction_memo_options.sql`](supabase/migrations/202610060004_transaction_memo_options.sql)、[`supabase/migrations/202610060005_public_classroom_store.sql`](supabase/migrations/202610060005_public_classroom_store.sql)、[`supabase/migrations/202610070001_classroom_basic_info.sql`](supabase/migrations/202610070001_classroom_basic_info.sql)、[`supabase/migrations/202610070002_transaction_actor_display_names.sql`](supabase/migrations/202610070002_transaction_actor_display_names.sql)、[`supabase/migrations/202610070003_public_student_transaction_details.sql`](supabase/migrations/202610070003_public_student_transaction_details.sql)、[`supabase/migrations/202610090001_transaction_notes.sql`](supabase/migrations/202610090001_transaction_notes.sql) 和 [`supabase/migrations/202610090002_teacher_transaction_edit_delete.sql`](supabase/migrations/202610090002_teacher_transaction_edit_delete.sql)。它們會建立資料表、權限政策、公開餘額/商店查詢、教師可管理的首頁設定、帳務項目選單、系統基本資訊、交易操作者顯示名稱權限、公開學生交易明細、交易備註及教師交易更正功能。
-3. 在 Authentication > Users 建立教師電子郵件/密碼帳戶，並停用公開註冊。
-4. 將 [`supabase/initial-setup.sql`](supabase/initial-setup.sql) 裡的教師電子郵件改成你的登入信箱、班級名稱改成實際名稱，再於 SQL Editor 執行一次。此設定會啟用該班級的公開餘額頁。
-5. 若資料庫已有多個班級，公開餘額 migration 不會自動選擇要公開的班級；請在 SQL Editor 只對要公開的班級設定 `public_balances_enabled = true`。
-6. 從 Project Settings > API 取得 Project URL 與 publishable key（舊專案可能顯示 anon key）。不要把 `service_role` / secret key 放進瀏覽器或 GitHub Pages。
+3. 接著依序套用 [`supabase/migrations/202610130001_pikmin_store_section.sql`](supabase/migrations/202610130001_pikmin_store_section.sql)、[`supabase/migrations/202610130002_persistent_pikmin_collection.sql`](supabase/migrations/202610130002_persistent_pikmin_collection.sql)、[`supabase/migrations/202610130003_student_pikmin_art.sql`](supabase/migrations/202610130003_student_pikmin_art.sql) 與 [`supabase/migrations/202610140001_teacher_add_pikmin.sql`](supabase/migrations/202610140001_teacher_add_pikmin.sql)，啟用皮克敏展示、收藏與教師手動新增流程。
+4. 在 Authentication > Users 建立教師電子郵件/密碼帳戶，並停用公開註冊。
+5. 將 [`supabase/initial-setup.sql`](supabase/initial-setup.sql) 裡的教師電子郵件改成你的登入信箱、班級名稱改成實際名稱，再於 SQL Editor 執行一次。此設定會啟用該班級的公開餘額頁。
+6. 若資料庫已有多個班級，公開餘額 migration 不會自動選擇要公開的班級；請在 SQL Editor 只對要公開的班級設定 `public_balances_enabled = true`。
+7. 從 Project Settings > API 取得 Project URL 與 publishable key（舊專案可能顯示 anon key）。不要把 `service_role` / secret key 放進瀏覽器或 GitHub Pages。
 
 ### 2. 本機啟動
 
@@ -58,4 +59,4 @@ Workflow 會產生未納入 Git 的 `public/config.js` 並部署 `public/`。Sup
 
 ## 目前版本範圍
 
-已建立教師登入、學生帳戶總覽、薪資/扣款交易、商品管理與教師代辦兌換的初版介面和 Supabase 資料層。學生登入畫面、行為規則管理、照片上傳及完整個人帳本仍在開發清單中。尚未連上你的 Supabase 專案或 GitHub repository，需依上方步驟提供專案設定後才能部署。
+已建立教師登入、學生帳戶總覽、薪資/扣款交易、皮克敏展示與教師手動新增皮克敏的介面和 Supabase 資料層。套用皮克敏收藏與學生圖片相關 migrations 後即可使用新流程。學生登入畫面、行為規則管理及完整個人帳本仍在開發清單中。

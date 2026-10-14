@@ -1,8 +1,8 @@
 const config = window.APP_CONFIG || {};
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
-const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, adminStoreCategory: 'all', publicStoreCategory: 'all', settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
-const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['CLASSROOM STORE', '班級商店'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
+const state = { supabase: null, user: null, profile: null, classroomId: null, students: [], transactions: [], products: [], balances: new Map(), photoUrls: new Map(), pikminPhotoUrls: new Map(), overviewDetails: new Map(), studentCollections: new Map(), productPhotoUrls: new Map(), bundledPikminArt: {}, pikminManifestLoaded: false, pikminArtDbReady: true, publicStore: [], publicPikminEnabled: true, settings: { systemName: '班級薪資銀行', classroomName: '', showStudentAvatars: false, showSeatNumbers: true, showPikmin: true, transactionMemoOptions: ['完成作業', '協助班級工作'] } };
+const pageTitles = { overview: ['ACCOUNT OVERVIEW', '帳戶總覽'], transactions: ['ACCOUNT LEDGER', '交易流水'], students: ['STUDENT ACCOUNTS', '學生帳戶'], store: ['PIKMIN GALLERY', '皮克敏展示'], settings: ['CLASSROOM SETTINGS', '基本設定'] };
 const transactionLabels = { reward: '薪資入帳', penalty: '扣薪', purchase: '商品兌換', adjustment: '帳務更正' };
 const fmt = n => new Intl.NumberFormat('zh-TW').format(Number(n || 0));
 const money = n => `$${fmt(n)}`;
@@ -134,7 +134,7 @@ async function loadPublicBalances() {
       const details = student.transaction_details || [];
       const pikminArtUrl = state.publicPikminEnabled ? pikminPhotoUrls.get(student.student_pikmin_photo_path) || (student.student_pikmin_photo_path ? null : bundledPikminArtUrl(student.student_name)) : null;
       const pikminPanel = state.publicPikminEnabled
-        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+        ? `<div class="student-pikmin-panel">${pikminArtUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminArtUrl)}" alt="${escapeHtml(student.student_name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}${renderPikminCollection(student.pikmin_collection)}</div>`
         : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
       const detailRows = details.length
         ? details.map(transaction => {
@@ -171,7 +171,7 @@ async function loadPublicStore() {
   const button = $('#public-store-refresh');
   if (!list || !state.supabase) return;
   button.disabled = true;
-  list.innerHTML = '<div class="empty-state panel">正在載入班級商店…</div>';
+  list.innerHTML = '<div class="empty-state panel">正在載入皮克敏展示…</div>';
   try {
     const { data, error } = await state.supabase.rpc('public_classroom_store');
     if (error) throw error;
@@ -180,9 +180,8 @@ async function loadPublicStore() {
     if (products[0]?.system_name) applyBranding(products[0].system_name, products[0].classroom_name);
     if (products[0]) state.publicPikminEnabled = products[0].public_pikmin_enabled !== false;
     $('#public-pikmin-store-tab')?.classList.toggle('hidden', !state.publicPikminEnabled);
-    $('[data-store-category="pikmin"]')?.classList.toggle('hidden', !state.publicPikminEnabled);
-    $('#public-pikmin-store-heading')?.classList.toggle('hidden', !state.publicPikminEnabled || state.publicStoreCategory !== 'pikmin');
-    $('#public-store-classroom-name').textContent = products[0]?.classroom_name || '班級商店';
+    $('#public-pikmin-store-heading')?.classList.toggle('hidden', !state.publicPikminEnabled);
+    $('#public-store-classroom-name').textContent = '皮克敏展示';
     if (!products.length) {
       list.innerHTML = '<div class="empty-state panel">目前沒有公開的商店商品，請洽詢教師。</div>';
       return;
@@ -196,15 +195,15 @@ async function loadPublicStore() {
       } catch { return { ...product, photo_url: null }; }
     }));
     state.publicStore = productsWithPhotos;
-    const visibleProducts = productsWithPhotos.filter(product => state.publicStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : state.publicStoreCategory === 'all' ? state.publicPikminEnabled || product.product_type !== 'pikmin' : true);
+    const visibleProducts = productsWithPhotos.filter(product => product.product_type === 'pikmin');
     list.innerHTML = visibleProducts.map((product, index) => {
-      const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
-      const type = product.product_type === 'pikmin' ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
+      const type = '皮克敏夥伴';
       const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
-      return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
-    }).join('') || `<div class="empty-state panel">${state.publicStoreCategory === 'pikmin' ? '皮克敏專區目前沒有上架商品。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
+      const pikminInfo = '<div class="public-product-bottom"><small>每累積 500 分，由老師手動新增</small></div>';
+      return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || (product.product_type === 'pikmin' ? '皮克敏夥伴' : '班級商店獎勵'))}</p>${pikminInfo}</div></article>`;
+    }).join('') || '<div class="empty-state panel">目前沒有展示中的皮克敏。</div>';
   } catch (error) {
-    list.innerHTML = `<div class="empty-state panel">讀取班級商店失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
+    list.innerHTML = `<div class="empty-state panel">讀取皮克敏展示失敗：${escapeHtml(errorMessage(error))}<br>請稍後重新整理。</div>`;
   } finally {
     button.disabled = false;
   }
@@ -265,7 +264,7 @@ function overviewStudentCard(student) {
   const seat = student.seat_number ? `座號 ${escapeHtml(student.seat_number)}` : '學生帳戶';
   const pikminUrl = state.pikminPhotoUrls.get(student.id) || (student.pikmin_photo_path ? null : bundledPikminArtUrl(student.name));
   const pikminPanel = state.settings.showPikmin
-    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}</div>`
+    ? `<div class="student-pikmin-panel">${pikminUrl ? `<div class="student-pikmin-art"><img src="${escapeHtml(pikminUrl)}" alt="${escapeHtml(student.name)}的皮克敏" loading="lazy"></div>` : '<small class="student-pikmin-empty">尚未設定圖片</small>'}${renderPikminCollection(state.studentCollections.get(student.id))}</div>`
     : '<div class="student-pikmin-panel" aria-hidden="true"></div>';
   const details = state.overviewDetails.get(student.id) || state.transactions.filter(transaction => transaction.student_id === student.id);
   const detailRows = details.length
@@ -278,6 +277,10 @@ function overviewStudentCard(student) {
     }).join('')
     : '<p class="public-ledger-empty">目前沒有交易明細。</p>';
   return `<div class="public-student-group admin-overview-student-group"><article class="public-student-card admin-overview-student-card"><div class="public-student-main"><div class="public-student-profile"><span class="public-student-avatar" aria-hidden="true">${escapeHtml(avatarText(student.name))}${avatar}</span><span class="public-student-name"><strong>${escapeHtml(student.name)}</strong><small>${seat}</small></span></div><div class="public-balance-value"><strong class="public-student-balance${balance < 0 ? ' negative' : ''}">${money(balance)}</strong><small>${balance < 0 ? '負債狀態' : '帳戶總餘額'}</small></div></div>${pikminPanel}</article><section class="public-student-ledger" aria-label="${escapeHtml(student.name)}個人明細"><h2>${escapeHtml(student.name)}個人明細</h2><div class="public-ledger-scroll">${detailRows}</div></section></div>`;
+}
+function renderPikminCollection(collection = []) {
+  if (!collection?.length) return '';
+  return `<div class="student-pikmin-collection" aria-label="已獲得 ${collection.length} 隻皮克敏">${collection.map(item => `<span>🌱 ${escapeHtml(item.product_name)}</span>`).join('')}</div>`;
 }
 function transactionRow(transaction) {
   const student = transaction.students || getStudent(transaction.student_id) || { name: '學生' };
@@ -421,89 +424,29 @@ function renderFilteredTransactions() {
 function fillStudentSelects() {
   const options = state.students.map(student => `<option value="${escapeHtml(student.id)}">${escapeHtml(student.name)}${student.seat_number ? `（${escapeHtml(student.seat_number)}）` : ''}</option>`).join('');
   $$('select[name="student_id"]').forEach(select => { select.innerHTML = options || '<option value="">請先新增學生</option>'; });
-  const products = state.products.filter(product => product.is_active).map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}　${money(product.price)}</option>`).join('');
-  const productSelect = $('#redemption-form select[name="product_id"]');
-  productSelect.innerHTML = products || '<option value="">目前沒有可兌換商品</option>';
+  const pikmin = state.products.filter(product => product.product_type === 'pikmin' && product.is_active).map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join('');
+  $('#pikmin-form select[name="product_id"]').innerHTML = pikmin || '<option value="">尚無可新增的皮克敏</option>';
 }
 function renderProducts() {
   const target = $('#products-grid');
-  if (!state.products.length) {
-    target.innerHTML = '<div class="empty-state panel">商店目前沒有商品，教師可以新增第一項獎勵。</div>';
-    return;
-  }
-  const activeProducts = state.products.filter(product => product.is_active);
-  const visibleProducts = activeProducts.filter(product => state.adminStoreCategory === 'pikmin' ? product.product_type === 'pikmin' : state.adminStoreCategory === 'all' ? true : product.product_type !== 'pikmin');
-  $('#admin-pikmin-store-heading')?.classList.toggle('hidden', state.adminStoreCategory !== 'pikmin');
+  const visibleProducts = state.products.filter(product => product.is_active && product.product_type === 'pikmin');
   target.innerHTML = visibleProducts.map((product, index) => {
     const photoUrl = state.productPhotoUrls.get(product.id);
     const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
-    return `<article class="product-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="product-bottom"><span class="product-price">${money(product.price)}</span><span class="product-stock">${product.stock_quantity == null ? '不限量' : `庫存 ${fmt(product.stock_quantity)}`}</span></div><div class="product-card-actions"><button class="button secondary" data-edit-product="${escapeHtml(product.id)}">編輯商品</button><button class="button primary" data-redeem="${escapeHtml(product.id)}" ${product.stock_quantity === 0 ? 'disabled' : ''}>為學生操作兌換</button></div></article>`;
-  }).join('') || `<div class="empty-state panel">${state.adminStoreCategory === 'pikmin' ? '目前沒有啟用中的皮克敏，可新增皮克敏夥伴商品。' : '目前沒有啟用中的商品。'}</div>`;
-}
-function setPublicStoreCategory(category) {
-  state.publicStoreCategory = category;
-  $$('[data-store-category]').forEach(button => button.classList.toggle('active', button.dataset.storeCategory === category));
-  $('#public-pikmin-store-heading')?.classList.toggle('hidden', category !== 'pikmin' || !state.publicPikminEnabled);
-  if (state.publicStore.length) {
-    const products = state.publicStore.filter(product => category === 'pikmin' ? product.product_type === 'pikmin' : category === 'all' ? state.publicPikminEnabled || product.product_type !== 'pikmin' : true);
-    const grid = $('#public-store-products');
-    grid.innerHTML = products.map((product, index) => {
-      const stock = product.stock_quantity == null ? '不限量' : Number(product.stock_quantity) === 0 ? '暫時缺貨' : `剩餘 ${fmt(product.stock_quantity)} 件`;
-      const type = product.product_type === 'pikmin' ? '皮克敏夥伴' : product.product_type === 'experience' ? '體驗獎勵' : '實體商品';
-      const art = product.photo_url ? `<img src="${escapeHtml(product.photo_url)}" alt="${escapeHtml(product.product_name)}">` : ['✦', '◈', '✿'][index % 3];
-      return `<article class="public-product-card"><div class="public-product-art${product.photo_url ? ' has-photo' : ''}"${product.photo_url ? '' : ' aria-hidden="true"'}>${art}</div><div class="public-product-info"><span class="product-type-label">${type}</span><h2>${escapeHtml(product.product_name)}</h2><p>${escapeHtml(product.description || '班級商店獎勵')}</p><div class="public-product-bottom"><strong>${money(product.price)}</strong><small>${stock}</small></div></div></article>`;
-    }).join('') || `<div class="empty-state panel">${category === 'pikmin' ? '皮克敏專區目前沒有上架商品。' : '目前沒有公開的商店商品，請洽詢教師。'}</div>`;
-  }
-}
-function setAdminStoreCategory(category) {
-  state.adminStoreCategory = category;
-  $$('[data-admin-store-category]').forEach(button => button.classList.toggle('active', button.dataset.adminStoreCategory === category));
-  renderProducts();
+    return `<article class="product-card pikmin-display-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '皮克敏夥伴')}</p></article>`;
+  }).join('') || '<div class="empty-state panel">目前沒有展示中的皮克敏。</div>';
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
-  if (!state.students.length && ['transaction-dialog', 'redemption-dialog'].includes(id)) {
+  if (!state.students.length && ['transaction-dialog', 'pikmin-dialog'].includes(id)) {
     toast('請先建立學生帳戶。');
-    if (id === 'redemption-dialog') setPage('students');
-    else $('#student-dialog').showModal();
+    $('#student-dialog').showModal();
     return;
   }
-  if (id === 'product-dialog') {
-    const form = $('#product-form');
-    form.reset();
-    form.elements.product_id.value = '';
-    form.elements.product_type.value = $('#product-dialog').dataset.nextProductType || 'physical';
-    delete $('#product-dialog').dataset.nextProductType;
-    $('#product-dialog-eyebrow').textContent = 'NEW REWARD';
-    $('#product-dialog-title').textContent = '新增商店商品';
-    $('#product-submit-button').textContent = '新增商品';
-    clearProductPhotoPreview();
-  }
+  if (id === 'pikmin-dialog') $('#pikmin-form').reset();
   dialog.querySelector('.dialog-error')?.replaceChildren();
   if (id === 'transaction-dialog') populateTransactionMemoOptions();
   dialog.showModal();
-}
-function openProductEditor(productId) {
-  const product = state.products.find(item => item.id === productId);
-  if (!product) return;
-  const form = $('#product-form');
-  form.reset();
-  clearProductPhotoPreview();
-  form.elements.product_id.value = product.id;
-  form.elements.name.value = product.name;
-  form.elements.product_type.value = product.product_type;
-  form.elements.price.value = product.price;
-  form.elements.description.value = product.description || '';
-  form.elements.stock.value = product.stock_quantity ?? '';
-  const preview = $('#product-photo-preview');
-  const photoUrl = state.productPhotoUrls.get(product.id);
-  if (photoUrl) { preview.src = photoUrl; preview.classList.remove('hidden'); }
-  else { preview.removeAttribute('src'); preview.classList.add('hidden'); }
-  $('.dialog-error', form).textContent = '';
-  $('#product-dialog-eyebrow').textContent = 'EDIT REWARD';
-  $('#product-dialog-title').textContent = '編輯商店商品';
-  $('#product-submit-button').textContent = '儲存修改';
-  $('#product-dialog').showModal();
 }
 function clearProductPhotoPreview() {
   const preview = $('#product-photo-preview');
@@ -655,10 +598,7 @@ async function submitStudentEdit(event) {
   }
 }
 function setupDialogs() {
-  $$('[data-open]').forEach(button => button.addEventListener('click', () => {
-    if (button.dataset.productType) $('#product-dialog').dataset.nextProductType = button.dataset.productType;
-    openDialog(button.dataset.open);
-  }));
+  $$('[data-open]').forEach(button => button.addEventListener('click', () => openDialog(button.dataset.open)));
   $$('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
   $$('[data-page]').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
   $$('.nav-item').forEach(button => button.addEventListener('click', () => setPage(button.dataset.page)));
@@ -667,21 +607,11 @@ function setupDialogs() {
     if (saveTransaction) { saveTransactionEdit(saveTransaction); return; }
     const deleteTransactionButton = event.target.closest('[data-delete-transaction]');
     if (deleteTransactionButton) { deleteTransaction(deleteTransactionButton); return; }
-    const editProduct = event.target.closest('[data-edit-product]');
-    if (editProduct) { openProductEditor(editProduct.dataset.editProduct); return; }
     const editStudent = event.target.closest('[data-edit-student]');
     if (editStudent) { openStudentEditor(editStudent.dataset.editStudent); return; }
-    const redeem = event.target.closest('[data-redeem]');
-    if (redeem) {
-      openDialog('redemption-dialog');
-      $('#redemption-form [name="product_id"]').value = redeem.dataset.redeem;
-      updateRedemptionPreview();
-    }
   });
   $('#transaction-search').addEventListener('input', renderFilteredTransactions);
   $('#type-filter').addEventListener('change', renderFilteredTransactions);
-  $('#redemption-form [name="student_id"]').addEventListener('change', updateRedemptionPreview);
-  $('#redemption-form [name="product_id"]').addEventListener('change', updateRedemptionPreview);
   $('#signout-button').addEventListener('click', () => state.supabase.auth.signOut());
   $('#transaction-form').addEventListener('submit', submitTransaction);
   $('#add-memo-option').addEventListener('click', addTransactionMemoOption);
@@ -692,7 +622,7 @@ function setupDialogs() {
     const button = event.target.closest('[data-remove-memo-option]');
     if (button) removeTransactionMemoOption(Number(button.dataset.removeMemoOption));
   });
-  $('#redemption-form').addEventListener('submit', submitRedemption);
+  $('#pikmin-form').addEventListener('submit', submitPikmin);
   $('#student-form').addEventListener('submit', submitStudent);
   $('#student-edit-form').addEventListener('submit', submitStudentEdit);
   $('#student-pikmin-art-list').addEventListener('change', event => {
@@ -703,18 +633,7 @@ function setupDialogs() {
     const button = event.target.closest('[data-reset-pikmin-art]');
     if (button) resetStudentPikminArt(button.dataset.resetPikminArt);
   });
-  $('#product-form').addEventListener('submit', submitProduct);
-  $('#product-photo-input').addEventListener('change', event => previewProductPhoto(event.target.files?.[0]));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') $$('dialog[open]').forEach(dialog => dialog.close()); });
-}
-function updateRedemptionPreview() {
-  const student = getStudent($('#redemption-form [name="student_id"]').value);
-  const product = state.products.find(item => item.id === $('#redemption-form [name="product_id"]').value);
-  const preview = $('#redemption-preview');
-  if (!student || !product) { preview.textContent = '選擇學生與商品後顯示扣款預覽'; return; }
-  const balance = currentBalance(student.id);
-  const after = balance - Number(product.price);
-  preview.innerHTML = `目前餘額 <strong>${money(balance)}</strong><br>兌換「${escapeHtml(product.name)}」扣款 <strong>−${money(product.price)}</strong><br>兌換後餘額 <strong>${money(after)}</strong>`;
 }
 async function loadState() {
   await ensurePikminArtManifest();
@@ -748,6 +667,7 @@ async function loadState() {
   state.balances = new Map((balancesResult.data || []).map(account => [account.student_id, Number(account.balance)]));
   state.transactions = transactionsResult.data || [];
   state.overviewDetails.clear();
+  state.studentCollections.clear();
   if (state.settings.showPikmin) {
     try {
       const { data: publicBalances, error: publicBalancesError } = await state.supabase.rpc('public_classroom_balances');
@@ -760,6 +680,7 @@ async function loadState() {
           if (!student) continue;
           matchedStudents.add(student.id);
           if (Array.isArray(publicStudent.transaction_details)) state.overviewDetails.set(student.id, publicStudent.transaction_details);
+          if (Array.isArray(publicStudent.pikmin_collection)) state.studentCollections.set(student.id, publicStudent.pikmin_collection);
         }
       }
     } catch { /* Collection counts are supplemental; account balances remain available. */ }
@@ -790,15 +711,15 @@ async function submitTransaction(event) {
   form.closest('dialog').close(); form.reset();
   await refreshAfterMutation('交易已入帳');
 }
-async function submitRedemption(event) {
+async function submitPikmin(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const values = new FormData(form);
   const error = $('.dialog-error', form);
-  const result = await state.supabase.rpc('redeem_product', { p_classroom_id: state.classroomId, p_student_id: values.get('student_id'), p_product_id: values.get('product_id'), p_memo: String(values.get('memo') || '').trim() || null });
+  const result = await state.supabase.rpc('teacher_add_student_pikmin', { p_classroom_id: state.classroomId, p_student_id: values.get('student_id'), p_product_id: values.get('product_id') });
   if (result.error) { showError(error, errorMessage(result.error)); return; }
   form.closest('dialog').close(); form.reset();
-  await refreshAfterMutation('兌換完成，扣款與品項已記錄');
+  await refreshAfterMutation('已為學生新增皮克敏');
 }
 async function submitStudent(event) {
   event.preventDefault();
@@ -817,59 +738,6 @@ async function submitStudent(event) {
     form.closest('dialog').close(); form.reset();
     await refreshAfterMutation('學生帳戶已建立');
   } catch (requestError) {
-    showError(error, errorMessage(requestError));
-  } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = originalLabel;
-  }
-}
-async function submitProduct(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = new FormData(form);
-  const stock = String(values.get('stock') || '').trim();
-  const productId = String(values.get('product_id') || '').trim();
-  const file = values.get('photo');
-  const error = $('.dialog-error', form);
-  const submitButton = $('#product-submit-button');
-  const originalLabel = submitButton.textContent;
-  if (file?.size && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError(error, '照片請使用 JPG、PNG 或 WebP 格式。'); return; }
-  if (file?.size > 5 * 1024 * 1024) { showError(error, '照片大小不可超過 5 MB。'); return; }
-  const changes = { name: String(values.get('name')).trim(), product_type: values.get('product_type'), price: Number(values.get('price')), description: String(values.get('description') || '').trim() || null, stock_quantity: stock ? Number(stock) : null };
-  const existingProduct = state.products.find(product => product.id === productId);
-  let uploadedPath = null;
-  error.textContent = '';
-  submitButton.disabled = true;
-  submitButton.textContent = '儲存中…';
-  try {
-    if (file?.size) {
-      let extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
-      let contentType = file.type;
-      const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      let photoToUpload = file;
-      try {
-        photoToUpload = await trimProductPhoto(file);
-        extension = 'jpg';
-        contentType = 'image/jpeg';
-      } catch { /* Keep the original if thumbnail processing is unavailable. */ }
-      uploadedPath = `${state.classroomId}/${uniqueName}.${extension}`;
-      const upload = await state.supabase.storage.from('product-photos').upload(uploadedPath, photoToUpload, { contentType, upsert: false });
-      if (upload.error) { showError(error, errorMessage(upload.error)); return; }
-      changes.photo_path = uploadedPath;
-    }
-    const result = productId
-      ? await state.supabase.from('store_products').update(changes).eq('id', productId).eq('classroom_id', state.classroomId).select('id').single()
-      : await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, ...changes, is_active: true }).select('id').single();
-    if (result.error) {
-      if (uploadedPath) await state.supabase.storage.from('product-photos').remove([uploadedPath]);
-      showError(error, errorMessage(result.error));
-      return;
-    }
-    form.closest('dialog').close(); form.reset();
-    if (uploadedPath && existingProduct?.photo_path) await state.supabase.storage.from('product-photos').remove([existingProduct.photo_path]);
-    await refreshAfterMutation(productId ? '商店商品已更新' : '商店商品已新增');
-  } catch (requestError) {
-    if (uploadedPath) await state.supabase.storage.from('product-photos').remove([uploadedPath]);
     showError(error, errorMessage(requestError));
   } finally {
     submitButton.disabled = false;
@@ -993,11 +861,8 @@ async function initialize() {
   $('#public-store-refresh').addEventListener('click', loadPublicStore);
   $$('[data-public-view]').forEach(button => button.addEventListener('click', () => setPublicView(button.dataset.publicView)));
   $('#public-pikmin-store-tab')?.addEventListener('click', () => {
-    setPublicStoreCategory('pikmin');
     setPublicView('store');
   });
-  $$('[data-store-category]').forEach(button => button.addEventListener('click', () => setPublicStoreCategory(button.dataset.storeCategory)));
-  $$('[data-admin-store-category]').forEach(button => button.addEventListener('click', () => setAdminStoreCategory(button.dataset.adminStoreCategory)));
   $('#settings-form').addEventListener('submit', submitSettings);
   $('#basic-info-form').addEventListener('submit', submitBasicInfo);
   $$('.setting-switch input').forEach(input => input.addEventListener('change', () => {

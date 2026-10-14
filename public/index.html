@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261013-pikmin-direct-category-v4" defer></script>
+  <script src="./app.js?v=20261014-pikmin-manual-grant-v1" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -24,8 +24,8 @@
     </header>
     <nav class="public-view-tabs" aria-label="公開首頁內容">
       <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
-      <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
-      <button id="public-pikmin-store-tab" type="button" class="public-store-cta">逛逛皮克敏專區 <span aria-hidden="true">→</span></button>
+      <button type="button" class="public-view-tab" data-public-view="store">皮克敏展示</button>
+      <button id="public-pikmin-store-tab" type="button" class="public-store-cta">皮克敏展示 <span aria-hidden="true">→</span></button>
     </nav>
     <section id="public-balances-view" class="public-content public-balances-view">
       <div class="public-heading">
@@ -37,11 +37,10 @@
       <p class="public-note">此公開頁面會顯示各學生的交易日期、類型、備註與金額；長清單可在明細窗格內捲動。</p>
     </section>
     <section id="public-store-view" class="public-content hidden">
-      <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與兌換所需薪元。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
-      <div class="store-category-tabs" role="group" aria-label="商店商品類別"><button type="button" class="store-category-tab active" data-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-store-category="pikmin">皮克敏專區</button></div>
-      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>挑選喜歡的虛擬夥伴，請洽教師協助兌換。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
-      <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入班級商店…</div></div>
-      <p class="public-note">公開頁面僅供瀏覽；請洽教師協助兌換。</p>
+      <div class="public-heading"><div><p class="eyebrow">PIKMIN GALLERY</p><h1 id="public-store-classroom-name">皮克敏展示</h1><p>學生每累積 500 分，由老師手動新增一隻皮克敏。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
+      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>每累積 500 分，由老師手動新增一隻。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+      <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入皮克敏展示…</div></div>
+      <p class="public-note">皮克敏不需兌換或扣款；達成 500 分後由老師手動新增。</p>
     </section>
   </main>
 
@@ -82,13 +81,13 @@
         <button class="nav-item active" data-page="overview"><span class="nav-icon">◫</span>帳戶總覽</button>
         <button class="nav-item" data-page="transactions"><span class="nav-icon">↕</span>交易流水</button>
         <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
-        <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
+        <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>皮克敏展示</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>基本設定</button>
       </nav>
-      <div class="side-label quick-nav-label">快速操作</div>
+      <div class="side-label quick-nav-label">管理區</div>
       <nav class="quick-nav" aria-label="快速操作">
         <button class="quick-nav-item" data-open="transaction-dialog"><span class="nav-icon">↗</span>薪資入帳</button>
-        <button class="quick-nav-item" data-open="redemption-dialog"><span class="nav-icon">↙</span>商品兌換</button>
+        <button class="quick-nav-item" data-open="pikmin-dialog"><span class="nav-icon">🌱</span>新增皮克敏</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="secure-badge"><span class="secure-dot"></span><span>資料安全連線<small>SUPABASE CLOUD</small></span></div>
@@ -130,9 +129,8 @@
       </div>
 
       <div id="page-store" class="page">
-        <section class="page-intro"><div><h2>班級商店</h2><p>由教師為學生操作兌換，扣款與品項備註會留在帳戶流水。</p></div><button class="button primary" data-open="product-dialog">＋ 新增商品</button></section>
-        <div class="store-category-tabs admin-store-tabs" role="group" aria-label="管理商品類別"><button type="button" class="store-category-tab active" data-admin-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-admin-store-category="pikmin">皮克敏專區</button></div>
-        <section id="admin-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>管理可兌換的虛擬皮克敏夥伴。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"><button class="button primary" type="button" data-open="product-dialog" data-product-type="pikmin">＋ 新增皮克敏</button></section>
+        <section class="page-intro"><div><h2>皮克敏展示說明</h2><p>學生每累積 500 分，由老師手動新增一隻皮克敏，不需兌換或扣款。</p></div></section>
+        <section class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>以下展示班級可新增的皮克敏種類。累積每 500 分，由老師在管理區手動新增。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
         <div id="products-grid" class="products-grid"></div>
       </div>
 
@@ -156,7 +154,7 @@
             <span class="setting-switch"><input id="setting-show-seat-numbers" name="show_seat_numbers" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
           </label>
           <label class="setting-row">
-            <span class="setting-copy"><strong>公開皮克敏專區</strong><small>開啟後，未登入訪客可在班級商店瀏覽皮克敏商品，並在學生帳戶旁看到已兌換的皮克敏。</small></span>
+            <span class="setting-copy"><strong>公開皮克敏展示</strong><small>開啟後，訪客可查看學生已獲得的皮克敏。</small></span>
             <span class="setting-switch"><input id="setting-show-pikmin" name="public_pikmin_enabled" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span class="switch-state">開啟</span></span>
           </label>
           <p id="settings-error" class="form-error" role="alert"></p>
@@ -194,15 +192,14 @@
     </form>
   </dialog>
 
-  <dialog id="redemption-dialog" class="modal">
-    <form id="redemption-form" class="modal-content">
-      <div class="modal-heading"><div><p class="eyebrow">STORE WITHDRAWAL</p><h2>商品兌換</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+  <dialog id="pikmin-dialog" class="modal">
+    <form id="pikmin-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">TEACHER MANAGEMENT</p><h2>新增皮克敏</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
       <label>學生<select name="student_id" required></select></label>
-      <label>兌換商品<select name="product_id" required></select></label>
-      <div id="redemption-preview" class="redemption-preview">選擇學生與商品後顯示扣款預覽</div>
-      <label>交易備註<input name="memo" maxlength="240" placeholder="可補充兌換說明"></label>
+      <label>皮克敏<select name="product_id" required></select></label>
+      <p class="form-hint">此操作只會新增皮克敏收藏，不會建立扣款或交易。</p>
       <p class="dialog-error" role="alert"></p>
-      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認扣款與兌換</button></div>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認新增</button></div>
     </form>
   </dialog>
 
@@ -227,23 +224,6 @@
       <p class="form-hint">支援 JPG、PNG、WebP，檔案上限 5 MB。上傳後只有班級教師與該學生可檢視。</p>
       <p class="dialog-error" role="alert"></p>
       <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">儲存資料</button></div>
-    </form>
-  </dialog>
-
-  <dialog id="product-dialog" class="modal">
-    <form id="product-form" class="modal-content">
-      <div class="modal-heading"><div><p id="product-dialog-eyebrow" class="eyebrow">NEW REWARD</p><h2 id="product-dialog-title">新增商店商品</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
-      <input type="hidden" name="product_id">
-      <img id="product-photo-preview" class="product-photo-preview hidden" alt="商品照片預覽">
-      <label>商品照片<input id="product-photo-input" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
-      <p class="form-hint">建議尺寸約 900 × 300 px（橫式），讓商品主體置中並填滿畫面。系統會自動裁切白色留白並縮圖。支援 JPG、PNG、WebP，檔案上限 5 MB；可隨時更換照片。</p>
-      <label>商品名稱<input name="name" maxlength="100" required></label>
-      <label>商品類型<select name="product_type"><option value="physical">實體商品</option><option value="experience">體驗獎勵</option><option value="pikmin">皮克敏夥伴（虛擬）</option></select></label>
-      <label>兌換薪元<input name="price" type="number" min="1" step="1" required></label>
-      <label>商品備註<input name="description" maxlength="240" placeholder="選填"></label>
-      <label>庫存數量<input name="stock" type="number" min="0" step="1" placeholder="留空代表不限量"></label>
-      <p class="dialog-error" role="alert"></p>
-      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button id="product-submit-button" class="button primary" type="submit">新增商品</button></div>
     </form>
   </dialog>
 
