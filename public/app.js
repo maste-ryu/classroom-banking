@@ -433,8 +433,23 @@ function renderProducts() {
   target.innerHTML = visibleProducts.map((product, index) => {
     const photoUrl = state.productPhotoUrls.get(product.id);
     const art = photoUrl ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(product.name)}">` : ['✦', '◈', '✿'][index % 3];
-    return `<article class="product-card pikmin-display-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '皮克敏夥伴')}</p></article>`;
+    return `<article class="product-card pikmin-display-card"><div class="product-art${photoUrl ? ' has-photo' : ''}">${art}</div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description || '皮克敏夥伴')}</p><div class="product-card-actions"><button class="button secondary" type="button" data-edit-pikmin="${escapeHtml(product.id)}">編輯</button><button class="button danger" type="button" data-delete-pikmin="${escapeHtml(product.id)}">刪除</button></div></article>`;
   }).join('') || '<div class="empty-state panel">目前沒有展示中的皮克敏。</div>';
+}
+function openPikminEditor(productId) {
+  const product = state.products.find(item => item.id === productId && item.product_type === 'pikmin');
+  if (!product) return;
+  const form = $('#pikmin-product-form');
+  form.reset();
+  form.elements.product_id.value = product.id;
+  form.elements.name.value = product.name;
+  form.elements.description.value = product.description || '';
+  $('#pikmin-product-dialog-title').textContent = '編輯展示皮克敏';
+  $('#pikmin-product-submit').textContent = '儲存修改';
+  clearProductPhotoPreview();
+  const photoUrl = state.productPhotoUrls.get(product.id);
+  if (photoUrl) { $('#product-photo-preview').src = photoUrl; $('#product-photo-preview').classList.remove('hidden'); }
+  $('#pikmin-product-dialog').showModal();
 }
 function openDialog(id) {
   const dialog = document.getElementById(id);
@@ -444,6 +459,14 @@ function openDialog(id) {
     return;
   }
   if (id === 'pikmin-dialog') $('#pikmin-form').reset();
+  if (id === 'pikmin-product-dialog') {
+    const form = $('#pikmin-product-form');
+    form.reset();
+    form.elements.product_id.value = '';
+    $('#pikmin-product-dialog-title').textContent = '新增展示皮克敏';
+    $('#pikmin-product-submit').textContent = '新增展示';
+    clearProductPhotoPreview();
+  }
   dialog.querySelector('.dialog-error')?.replaceChildren();
   if (id === 'transaction-dialog') populateTransactionMemoOptions();
   dialog.showModal();
@@ -609,6 +632,10 @@ function setupDialogs() {
     if (deleteTransactionButton) { deleteTransaction(deleteTransactionButton); return; }
     const editStudent = event.target.closest('[data-edit-student]');
     if (editStudent) { openStudentEditor(editStudent.dataset.editStudent); return; }
+    const editPikmin = event.target.closest('[data-edit-pikmin]');
+    if (editPikmin) { openPikminEditor(editPikmin.dataset.editPikmin); return; }
+    const deletePikmin = event.target.closest('[data-delete-pikmin]');
+    if (deletePikmin) deletePikminType(deletePikmin.dataset.deletePikmin);
   });
   $('#transaction-search').addEventListener('input', renderFilteredTransactions);
   $('#type-filter').addEventListener('change', renderFilteredTransactions);
@@ -623,6 +650,8 @@ function setupDialogs() {
     if (button) removeTransactionMemoOption(Number(button.dataset.removeMemoOption));
   });
   $('#pikmin-form').addEventListener('submit', submitPikmin);
+  $('#pikmin-product-form').addEventListener('submit', submitPikminProduct);
+  $('#product-photo-input').addEventListener('change', event => previewProductPhoto(event.target.files?.[0]));
   $('#student-form').addEventListener('submit', submitStudent);
   $('#student-edit-form').addEventListener('submit', submitStudentEdit);
   $('#student-pikmin-art-list').addEventListener('change', event => {
@@ -720,6 +749,62 @@ async function submitPikmin(event) {
   if (result.error) { showError(error, errorMessage(result.error)); return; }
   form.closest('dialog').close(); form.reset();
   await refreshAfterMutation('已為學生新增皮克敏');
+}
+async function submitPikminProduct(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const productId = String(values.get('product_id') || '').trim();
+  const existing = state.products.find(product => product.id === productId && product.product_type === 'pikmin');
+  const file = values.get('photo');
+  const error = $('.dialog-error', form);
+  const button = $('#pikmin-product-submit');
+  const originalLabel = button.textContent;
+  let uploadedPath = null;
+  if (file?.size && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError(error, '圖片請使用 JPG、PNG 或 WebP 格式。'); return; }
+  if (file?.size > 5 * 1024 * 1024) { showError(error, '圖片大小不可超過 5 MB。'); return; }
+  const changes = { name: String(values.get('name') || '').trim(), product_type: 'pikmin', price: null, description: String(values.get('description') || '').trim() || null, stock_quantity: null };
+  error.textContent = '';
+  button.disabled = true;
+  button.textContent = '儲存中…';
+  try {
+    if (file?.size) {
+      let image = file;
+      let extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      let contentType = file.type;
+      try { image = await trimProductPhoto(file); extension = 'jpg'; contentType = 'image/jpeg'; }
+      catch { /* Use the original supported image when processing is unavailable. */ }
+      const uniqueName = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      uploadedPath = `${state.classroomId}/${uniqueName}.${extension}`;
+      const upload = await state.supabase.storage.from('product-photos').upload(uploadedPath, image, { contentType, upsert: false });
+      if (upload.error) throw upload.error;
+      changes.photo_path = uploadedPath;
+    }
+    const result = productId
+      ? await state.supabase.from('store_products').update(changes).eq('id', productId).eq('classroom_id', state.classroomId).eq('product_type', 'pikmin').select('id').single()
+      : await state.supabase.from('store_products').insert({ classroom_id: state.classroomId, ...changes, is_active: true }).select('id').single();
+    if (result.error) throw result.error;
+    form.closest('dialog').close();
+    if (uploadedPath && existing?.photo_path) await state.supabase.storage.from('product-photos').remove([existing.photo_path]);
+    await refreshAfterMutation(productId ? '展示皮克敏已更新' : '展示皮克敏已新增');
+  } catch (requestError) {
+    if (uploadedPath) await state.supabase.storage.from('product-photos').remove([uploadedPath]);
+    showError(error, errorMessage(requestError));
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+}
+async function deletePikminType(productId) {
+  const product = state.products.find(item => item.id === productId && item.product_type === 'pikmin');
+  if (!product || !window.confirm(`確定刪除「${product.name}」？既有學生收藏中的皮克敏名稱會保留。`)) return;
+  const { error } = await state.supabase.from('store_products').delete().eq('id', product.id).eq('classroom_id', state.classroomId).eq('product_type', 'pikmin');
+  if (error) { toast(`刪除失敗：${errorMessage(error)}`); return; }
+  if (product.photo_path) {
+    const { error: photoError } = await state.supabase.storage.from('product-photos').remove([product.photo_path]);
+    if (photoError) toast(`皮克敏已刪除，但圖片檔未能清除：${errorMessage(photoError)}`);
+  }
+  await refreshAfterMutation(`已刪除「${product.name}」`);
 }
 async function submitStudent(event) {
   event.preventDefault();

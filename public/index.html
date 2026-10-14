@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20261013-pikmin-banner-v5">
+  <link rel="stylesheet" href="./styles.css?v=20261014-pikmin-crud-v1">
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261014-pikmin-manual-grant-v1" defer></script>
+  <script src="./app.js?v=20261014-pikmin-management-v1" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -129,7 +129,7 @@
       </div>
 
       <div id="page-store" class="page">
-        <section class="page-intro"><div><h2>皮克敏展示說明</h2><p>學生每累積 500 分，由老師手動新增一隻皮克敏，不需兌換或扣款。</p></div></section>
+        <section class="page-intro"><div><h2>皮克敏展示說明</h2><p>學生每累積 500 分，由老師手動新增一隻皮克敏，不需兌換或扣款。</p></div><button class="button primary" type="button" data-open="pikmin-product-dialog">＋ 新增展示皮克敏</button></section>
         <section class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>以下展示班級可新增的皮克敏種類。累積每 500 分，由老師在管理區手動新增。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
         <div id="products-grid" class="products-grid"></div>
       </div>
@@ -200,6 +200,20 @@
       <p class="form-hint">此操作只會新增皮克敏收藏，不會建立扣款或交易。</p>
       <p class="dialog-error" role="alert"></p>
       <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button class="button primary" type="submit">確認新增</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="pikmin-product-dialog" class="modal">
+    <form id="pikmin-product-form" class="modal-content">
+      <div class="modal-heading"><div><p class="eyebrow">PIKMIN GALLERY</p><h2 id="pikmin-product-dialog-title">新增展示皮克敏</h2></div><button type="button" class="icon-button" data-close aria-label="關閉">×</button></div>
+      <input type="hidden" name="product_id">
+      <img id="product-photo-preview" class="product-photo-preview hidden" alt="皮克敏圖片預覽">
+      <label>展示圖片<input id="product-photo-input" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <p class="form-hint">支援 JPG、PNG、WebP，檔案上限 5 MB。</p>
+      <label>皮克敏名稱<input name="name" maxlength="100" required></label>
+      <label>展示說明<input name="description" maxlength="240" placeholder="選填"></label>
+      <p class="dialog-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="button secondary" data-close>取消</button><button id="pikmin-product-submit" class="button primary" type="submit">新增展示</button></div>
     </form>
   </dialog>
 
