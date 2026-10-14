@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="./ledger-details.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20261014-pikmin-management-v1" defer></script>
+  <script src="./app.js?v=20261014-classroom-store-v2" defer></script>
 </head>
 <body>
   <main id="public-screen" class="public-screen hidden">
@@ -24,7 +24,7 @@
     </header>
     <nav class="public-view-tabs" aria-label="公開首頁內容">
       <button type="button" class="public-view-tab active" data-public-view="balances" aria-current="page">學生餘額</button>
-      <button type="button" class="public-view-tab" data-public-view="store">皮克敏展示</button>
+      <button type="button" class="public-view-tab" data-public-view="store">班級商店</button>
       <button id="public-pikmin-store-tab" type="button" class="public-store-cta">皮克敏展示 <span aria-hidden="true">→</span></button>
     </nav>
     <section id="public-balances-view" class="public-content public-balances-view">
@@ -37,10 +37,11 @@
       <p class="public-note">此公開頁面會顯示各學生的交易日期、類型、備註與金額；長清單可在明細窗格內捲動。</p>
     </section>
     <section id="public-store-view" class="public-content hidden">
-      <div class="public-heading"><div><p class="eyebrow">PIKMIN GALLERY</p><h1 id="public-store-classroom-name">皮克敏展示</h1><p>學生每累積 500 分，由老師手動新增一隻皮克敏。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
-      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>每累積 500 分，由老師手動新增一隻。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+      <div class="public-heading"><div><p class="eyebrow">CLASSROOM STORE</p><h1 id="public-store-classroom-name">班級商店</h1><p>瀏覽班級目前提供的獎勵與商品。</p></div><button id="public-store-refresh" class="button primary" type="button">重新整理</button></div>
+      <div class="store-category-tabs" role="group" aria-label="商店商品類別"><button type="button" class="store-category-tab active" data-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-store-category="pikmin">皮克敏專區</button></div>
+      <section id="public-pikmin-store-heading" class="pikmin-store-heading hidden"><span aria-hidden="true">🌱</span><div><h2>皮克敏專區</h2><p>每累積 500 分，由老師手動新增一隻。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
       <div id="public-store-products" class="public-products-grid"><div class="empty-state panel">正在載入皮克敏展示…</div></div>
-      <p class="public-note">皮克敏不需兌換或扣款；達成 500 分後由老師手動新增。</p>
+      <p class="public-note">皮克敏不需兌換或扣款；每累積 500 分由老師手動新增。其他商店品項請洽教師辦理。</p>
     </section>
   </main>
 
@@ -81,7 +82,7 @@
         <button class="nav-item active" data-page="overview"><span class="nav-icon">◫</span>帳戶總覽</button>
         <button class="nav-item" data-page="transactions"><span class="nav-icon">↕</span>交易流水</button>
         <button class="nav-item" data-page="students"><span class="nav-icon">♙</span>學生帳戶</button>
-        <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>皮克敏展示</button>
+        <button class="nav-item" data-page="store"><span class="nav-icon">▧</span>班級商店</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>基本設定</button>
       </nav>
       <div class="side-label quick-nav-label">管理區</div>
@@ -129,8 +130,9 @@
       </div>
 
       <div id="page-store" class="page">
-        <section class="page-intro"><div><h2>皮克敏展示說明</h2><p>學生每累積 500 分，由老師手動新增一隻皮克敏，不需兌換或扣款。</p></div><button class="button primary" type="button" data-open="pikmin-product-dialog">＋ 新增展示皮克敏</button></section>
-        <section class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>以下展示班級可新增的皮克敏種類。累積每 500 分，由老師在管理區手動新增。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
+        <section class="page-intro"><div><h2>班級商店</h2><p>管理班級商店展示；皮克敏由老師手動新增，每累積 500 分贈予學生。</p></div><button class="button primary" type="button" data-open="pikmin-product-dialog">＋ 新增展示皮克敏</button></section>
+        <div class="store-category-tabs admin-store-tabs" role="group" aria-label="管理商品類別"><button type="button" class="store-category-tab active" data-admin-store-category="all">全部商品</button><button type="button" class="store-category-tab" data-admin-store-category="pikmin">皮克敏展示</button></div>
+        <section id="admin-pikmin-store-heading" class="pikmin-store-heading"><span aria-hidden="true">🌱</span><div><h2>皮克敏夥伴</h2><p>每累積 500 分，由老師手動新增，不需扣款或兌換。</p></div><img class="pikmin-store-banner-art" src="./pikmin/pikmin-collection-banner.png" alt="不同種類的皮克敏夥伴插畫"></section>
         <div id="products-grid" class="products-grid"></div>
       </div>
 
